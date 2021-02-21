@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="LookSupport工具类JDK中的 rt.jar 包里面的 LockSupport 是个工具类，它的主要作用是挂起和唤醒线程，该工具类是创建锁和其他同步类的基础。">
+<meta name="keywords" content="java并发">
+<meta property="og:type" content="article">
+<meta property="og:title" content="java并发02_AQS&amp;锁的实现">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;11&#x2F;02&#x2F;java%E5%B9%B6%E5%8F%91&#x2F;java%E5%B9%B6%E5%8F%9102_AQS&amp;%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="LookSupport工具类JDK中的 rt.jar 包里面的 LockSupport 是个工具类，它的主要作用是挂起和唤醒线程，该工具类是创建锁和其他同步类的基础。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_01.jpeg">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_02.jpeg">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_03.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_04.jpeg">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_09.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_05.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_08.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_06.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_07.png">
+<meta property="og:updated_time" content="2020-07-05T09:49:24.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;java_concurrent&#x2F;java_concurrent_02_01.jpeg">
+
+<link rel="canonical" href="http://yoursite.com/2019/11/02/java%E5%B9%B6%E5%8F%91/java%E5%B9%B6%E5%8F%9102_AQS&%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>java并发02_AQS&锁的实现 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/11/02/java%E5%B9%B6%E5%8F%91/java%E5%B9%B6%E5%8F%9102_AQS&%E9%94%81%E7%9A%84%E5%AE%9E%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          java并发02_AQS&锁的实现
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-11-02 20:46:25" itemprop="dateCreated datePublished" datetime="2019-11-02T20:46:25+08:00">2019-11-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-07-05 17:49:24" itemprop="dateModified" datetime="2020-07-05T17:49:24+08:00">2020-07-05</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/java%E5%B9%B6%E5%8F%91/" itemprop="url" rel="index"><span itemprop="name">java并发</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="LookSupport工具类"><a href="#LookSupport工具类" class="headerlink" title="LookSupport工具类"></a>LookSupport工具类</h1><p>JDK中的 rt.jar 包里面的 LockSupport 是个工具类，它的<strong>主要作用是挂起和唤醒线程</strong>，<strong>该工具类是创建锁和其他同步类的基础</strong>。</p>
+<a id="more"></a>
+
+<h2 id="park-方法–阻塞"><a href="#park-方法–阻塞" class="headerlink" title="park()方法–阻塞"></a>park()方法–阻塞</h2><p>如果调用 park 方法的线程已经拿到了与 LockSupport 关联的许可证 ，则 调用LockSupport.park()时会马上返回，否则调用线程会被禁止参与线程的调度，也就是会被阻塞挂起。</p>
+<h2 id="unpark-Thread-thread-方法–唤醒"><a href="#unpark-Thread-thread-方法–唤醒" class="headerlink" title="unpark(Thread thread)方法–唤醒"></a>unpark(Thread thread)方法–唤醒</h2><p>当一个线程调用 unpark 时，如果 参数 thread 线程没有持有 thread 与 LockSupport 类关联的许可证， 则让 thread 线程持有。 如果 thread 之前因调用 park()而被挂起，则调用 unpark 后，该线程会被唤醒。如果 thread 之前没有调用 park，则调用 unpark 方法后， 再调用 park 方法，其会立刻返回 。</p>
+<h1 id="AQS概述"><a href="#AQS概述" class="headerlink" title="AQS概述"></a>AQS概述</h1><p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_01.jpeg" alt=""></p>
+<h2 id="state"><a href="#state" class="headerlink" title="state"></a>state</h2><p>AQS 中维持了一个单一的状态信息state，可以通过 getState 、setState 、 compareAndSetState 函数修改其值 。</p>
+<ul>
+<li>state用volatile修饰，保证多线程中的可见性。</li>
+<li>getState()和setState()方法采用final修饰，限制AQS的子类重写它们两。</li>
+<li>compareAndSetState（）方法采用乐观锁思想的CAS算法，也是采用final修饰的，不允许子类重写。</li>
+</ul>
+<p>对于ReentrantLock的实现来说，state可以用来表示当前线程获取锁的可重入次数；<br>对于读写锁ReentrantReadWriteLock来说，state的高16位表示读状态，也就是获取该读锁的次数，低16位表示获取到写锁的线程的可重入次数；<br>对于semaphore来说，state用来表示当前可用信号的个数：<br>对于CountDownlatch来说，state用来表示计数器当前的值。</p>
+<h2 id="CLH队列"><a href="#CLH队列" class="headerlink" title="CLH队列"></a>CLH队列</h2><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_02.jpeg" alt=""></p>
+<p><strong>CLH(Craig, Landin, and Hagersten locks) 同步队列 是一个FIFO双向队列，其内部通过节点head和tail记录队首和队尾元素，队列元素的类型为Node。</strong></p>
+<p>AQS依赖它来完成同步状态state的管理，当前线程如果获取同步状态失败时，AQS则会将当前线程已经等待状态等信息构造成一个节点（Node）并将其加入到CLH同步队列，同时会阻塞当前线程，当同步状态释放时，会把首节点唤醒（公平锁），使其再次尝试获取同步状态。</p>
+<h2 id="Node"><a href="#Node" class="headerlink" title="Node"></a>Node</h2><p>Node节点内部的<strong>SHARED</strong>用来标记该线程是获取共享资源时被阻塞挂起后放入AQS队列的，<strong>EXCLUSIVE</strong>用来标记线程是获取独占资源时被挂起后放入AQS队列的；</p>
+<p>waitStatus记录当前线程等待状态，可以为CANCELLED（线程被取消了）、SIGNAL（线程需要被唤醒）、CONDITION（线程在条件队列里面等待)、PROPAGATE（释放共享资源时需要通知其他节点)；</p>
+<p>prev记录当前节点的前驱节点，next记录当前节点的后继节点。</p>
+<p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_03.png" alt=""></p>
+<p>  <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_04.jpeg" alt=""></p>
+<h2 id="独占or共享"><a href="#独占or共享" class="headerlink" title="独占or共享"></a>独占or共享</h2><p>在独占方式下，获取与释放资源的流程如下：</p>
+<ul>
+<li>当一个线程调用acquire(intarg）方法获取独占资源时，会首先使用tryAcquire方法尝试获取资源，具体是设置状态变量state的值，成功则直接返回，失败则将当前线程封装为类型为Node.EXCLUSIVE的Node节点后插入到AQS阻塞队列的尾部，并调用LockSupport.park(this）方法挂起自己。  </li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">void</span> <span class="title">acquire</span><span class="params">(<span class="keyword">int</span> arg)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (!tryAcquire(arg) &amp;&amp;</span><br><span class="line">        acquireQueued(addWaiter(Node.EXCLUSIVE), arg))</span><br><span class="line">        selfInterrupt();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><p>当一个线程调用release(intarg）方法时会尝试使用tryRelease操作释放资源，这里是设置状态变量state的值，然后调用LockSupport.unpark(thread）方法激活AQS队列里面被阻塞的一个线程（thread）。被激活的线程则使用tryAcquire尝试，看当前状态变量state的值是否能满足自己的需要，满足则该线程被激活，然后继续向下运行，否则还是会被放入AQS队列并被挂起。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">final</span> <span class="keyword">boolean</span> <span class="title">release</span><span class="params">(<span class="keyword">int</span> arg)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">if</span> (tryRelease(arg)) &#123;</span><br><span class="line">        Node h = head;</span><br><span class="line">        <span class="keyword">if</span> (h != <span class="keyword">null</span> &amp;&amp; h.waitStatus != <span class="number">0</span>)</span><br><span class="line">            unparkSuccessor(h);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+</li>
+</ul>
+<p><strong>AQS类并没有提供可用的tryAcquire和tryRelease方法，需要由具体的子类来实现。</strong>子类在实现tryAcquire和tryRelease时要根据具体场景使用CAS算法尝试修改state状态值，成功则返回true，否则返回false。</p>
+<p>和独占方法类似，共享方式下则是acquireShared(int arg)，releaseShared(int arg)。</p>
+<h2 id="条件变量ConditionObject"><a href="#条件变量ConditionObject" class="headerlink" title="条件变量ConditionObject"></a>条件变量ConditionObject</h2><p>类似于notify和wait，ConditionObject的signal和await方法也是用来配合锁（使用 AQS 实现的锁）实现线程间同步的基础设施。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_09.png" alt="">  </p>
+<h1 id="ReentrantLock原理"><a href="#ReentrantLock原理" class="headerlink" title="ReentrantLock原理"></a>ReentrantLock原理</h1><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_05.png" alt=""></p>
+<p>ReentrantLock最终还是使用AQS来实现的，并且根据参数来决定其内部是一个公平还是非公平锁，默认是非公平锁。</p>
+<p>jdk8中ReentrantLock的公平锁实现，主要是重写了tryAcquire方法，判断队列是否为空，队列为空直接获得锁，否则放入同步队列中等待。</p>
+<p>jdk8中ReentrantLock的非公平锁实现，NonfairSync类调用了父类Sync的nonfairTryAcquire方法，如果当前锁状态为0，会先去尝试获取锁，获取失败才会加入等待队列中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Sync object for fair locks</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">final</span> <span class="class"><span class="keyword">class</span> <span class="title">FairSync</span> <span class="keyword">extends</span> <span class="title">Sync</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="keyword">long</span> serialVersionUID = -<span class="number">3000897897090466540L</span>;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">final</span> <span class="keyword">void</span> <span class="title">lock</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        acquire(<span class="number">1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">/**</span></span><br><span class="line"><span class="comment">     * Fair version of tryAcquire.  Don't grant access unless</span></span><br><span class="line"><span class="comment">     * recursive call or no waiters or is first.</span></span><br><span class="line"><span class="comment">     */</span></span><br><span class="line">    <span class="function"><span class="keyword">protected</span> <span class="keyword">final</span> <span class="keyword">boolean</span> <span class="title">tryAcquire</span><span class="params">(<span class="keyword">int</span> acquires)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">final</span> Thread current = Thread.currentThread();</span><br><span class="line">        <span class="keyword">int</span> c = getState();</span><br><span class="line">        <span class="keyword">if</span> (c == <span class="number">0</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (!hasQueuedPredecessors() &amp;&amp;</span><br><span class="line">                compareAndSetState(<span class="number">0</span>, acquires)) &#123;</span><br><span class="line">                setExclusiveOwnerThread(current);</span><br><span class="line">                <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (current == getExclusiveOwnerThread()) &#123;</span><br><span class="line">            <span class="keyword">int</span> nextc = c + acquires;</span><br><span class="line">            <span class="keyword">if</span> (nextc &lt; <span class="number">0</span>)</span><br><span class="line">                <span class="keyword">throw</span> <span class="keyword">new</span> Error(<span class="string">"Maximum lock count exceeded"</span>);</span><br><span class="line">            setState(nextc);</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/**</span></span><br><span class="line"><span class="comment"> * Performs non-fair tryLock.  tryAcquire is implemented in</span></span><br><span class="line"><span class="comment"> * subclasses, but both need nonfair try for trylock method.</span></span><br><span class="line"><span class="comment"> */</span></span><br><span class="line"><span class="function"><span class="keyword">final</span> <span class="keyword">boolean</span> <span class="title">nonfairTryAcquire</span><span class="params">(<span class="keyword">int</span> acquires)</span> </span>&#123;</span><br><span class="line">    <span class="keyword">final</span> Thread current = Thread.currentThread();</span><br><span class="line">    <span class="keyword">int</span> c = getState();</span><br><span class="line">    <span class="keyword">if</span> (c == <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="keyword">if</span> (compareAndSetState(<span class="number">0</span>, acquires)) &#123;</span><br><span class="line">            setExclusiveOwnerThread(current);</span><br><span class="line">            <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">else</span> <span class="keyword">if</span> (current == getExclusiveOwnerThread()) &#123;</span><br><span class="line">        <span class="keyword">int</span> nextc = c + acquires;</span><br><span class="line">        <span class="keyword">if</span> (nextc &lt; <span class="number">0</span>) <span class="comment">// overflow</span></span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> Error(<span class="string">"Maximum lock count exceeded"</span>);</span><br><span class="line">        setState(nextc);</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">true</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="keyword">false</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_08.png" alt=""></p>
+<h1 id="ReentrantReadWriteLock原理"><a href="#ReentrantReadWriteLock原理" class="headerlink" title="ReentrantReadWriteLock原理"></a>ReentrantReadWriteLock原理</h1><p>ReentrantReadWriteLock原理和ReentrantLock差不多，同样支持公平和非公平锁。</p>
+<p>ReentrantReadWriteLock巧妙地使用AQS的状态值的高 16 位表示获取到读锁的个数，低16位表示获取写锁的线程的可重入次数，并通过CAS对其进行操作实现了读写分离，这 在读多写少的场景下比较适用。</p>
+<p><strong>读锁不支持条件队列</strong></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_06.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/java_concurrent/java_concurrent_02_07.png" alt=""></p>
+<h1 id="StampedLock锁"><a href="#StampedLock锁" class="headerlink" title="StampedLock锁"></a>StampedLock锁</h1><p>StampedLock是并发包里面JDK8版本新增的一个锁，该锁提供了三种模式的读写控制。<br>当调用获取锁的系列函数时，会返回一个long型的变量，我们称之为戳记(stamp),这个戳记代表了锁的状态。<br>其中try系列获取锁的函数，当获取锁失败后会返回为0的stamp值。<br><strong>当调用释放锁和转换锁的方法时需要传入获取锁时返回的stamp值。</strong>  </p>
+<p><strong>StampedLock的读写锁都是不可重入锁</strong>，所以在获取锁后释放锁前不应该再调用会获取锁的操作，以避免造成调用线程被阻塞。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/java%E5%B9%B6%E5%8F%91/" rel="tag"># java并发</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/11/01/java%E5%B9%B6%E5%8F%91/java%E5%B9%B6%E5%8F%9101_%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/" rel="prev" title="java并发01_基础概念">
+      <i class="fa fa-chevron-left"></i> java并发01_基础概念
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/11/03/java%E5%B9%B6%E5%8F%91/java%E5%B9%B6%E5%8F%9103_%E5%8E%9F%E5%AD%90%E7%B1%BB%E7%9A%84%E5%AE%9E%E7%8E%B0/" rel="next" title="java并发03_原子类的实现">
+      java并发03_原子类的实现 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#LookSupport工具类"><span class="nav-number">1.</span> <span class="nav-text">LookSupport工具类</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#park-方法–阻塞"><span class="nav-number">1.1.</span> <span class="nav-text">park()方法–阻塞</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#unpark-Thread-thread-方法–唤醒"><span class="nav-number">1.2.</span> <span class="nav-text">unpark(Thread thread)方法–唤醒</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#AQS概述"><span class="nav-number">2.</span> <span class="nav-text">AQS概述</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#state"><span class="nav-number">2.1.</span> <span class="nav-text">state</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CLH队列"><span class="nav-number">2.2.</span> <span class="nav-text">CLH队列</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Node"><span class="nav-number">2.3.</span> <span class="nav-text">Node</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#独占or共享"><span class="nav-number">2.4.</span> <span class="nav-text">独占or共享</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#条件变量ConditionObject"><span class="nav-number">2.5.</span> <span class="nav-text">条件变量ConditionObject</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ReentrantLock原理"><span class="nav-number">3.</span> <span class="nav-text">ReentrantLock原理</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#ReentrantReadWriteLock原理"><span class="nav-number">4.</span> <span class="nav-text">ReentrantReadWriteLock原理</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#StampedLock锁"><span class="nav-number">5.</span> <span class="nav-text">StampedLock锁</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

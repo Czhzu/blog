@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="存储概要设计RocketMQ 主要存储的文件包括Comitlog文件、ConsumeQueue 文件、IndexFile文件。 RocketMQ将所有主题的消息存储在同－个文件中,确保消息发送时顺序写文件， 尽最大的能力确保消息发送的高性能与高吞吐量。 为了提高消息消费的效率， RocketMQ引入了ConsumeQueue消息队列文件， 每个消息主题包含多个消息消费队列，每一个消息队列有一个消息">
+<meta name="keywords" content="mq,rocketmq">
+<meta property="og:type" content="article">
+<meta property="og:title" content="rocketmq03_Broker">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;04&#x2F;07&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;mq&#x2F;rocketmq&#x2F;rocketmq03_Broker&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="存储概要设计RocketMQ 主要存储的文件包括Comitlog文件、ConsumeQueue 文件、IndexFile文件。 RocketMQ将所有主题的消息存储在同－个文件中,确保消息发送时顺序写文件， 尽最大的能力确保消息发送的高性能与高吞吐量。 为了提高消息消费的效率， RocketMQ引入了ConsumeQueue消息队列文件， 每个消息主题包含多个消息消费队列，每一个消息队列有一个消息">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_02.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_03.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_04.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_05.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_06.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_07.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_08.png">
+<meta property="og:updated_time" content="2020-04-12T12:42:23.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;Broker_01.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/04/07/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq03_Broker/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>rocketmq03_Broker | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/04/07/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq03_Broker/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          rocketmq03_Broker
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-07 20:00:00" itemprop="dateCreated datePublished" datetime="2019-04-07T20:00:00+08:00">2019-04-07</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-04-12 20:42:23" itemprop="dateModified" datetime="2020-04-12T20:42:23+08:00">2020-04-12</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/" itemprop="url" rel="index"><span itemprop="name">mq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/rocketmq/" itemprop="url" rel="index"><span itemprop="name">rocketmq</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="存储概要设计"><a href="#存储概要设计" class="headerlink" title="存储概要设计"></a>存储概要设计</h1><p>RocketMQ 主要存储的文件包括<strong>Comitlog文件</strong>、<strong>ConsumeQueue 文件</strong>、<strong>IndexFile文件</strong>。</p>
+<p>RocketMQ将所有主题的消息存储在同－个文件中,确保消息发送时顺序写文件， 尽最大的能力确保消息发送的高性能与高吞吐量。</p>
+<p>为了提高消息消费的效率， RocketMQ引入了ConsumeQueue消息队列文件， 每个消息主题包含多个消息消费队列，每一个消息队列有一个消息文件。</p>
+<p>IndexFile索引文件， 其主要设计理念就是为了加速消息的检索性能， 根据消息的属性快速从 Commitlog 文件中检索消息。</p>
+<a id="more"></a>
+
+<p><strong>为什么单机kafka topic过多会导致性能下降，RocketMq下降不明显？</strong></p>
+<p><strong>单机情况下，Kafka由于是一个topic的分区日志对应一个文件，当topic数量过多的时候，会出现大量IO竞争，导致吞吐率大幅下降</strong></p>
+<p>参考阿里中间件团队博客：<a href="http://jm.taobao.org/2016/04/07/kafka-vs-rocketmq-topic-amout/" target="_blank" rel="noopener">http://jm.taobao.org/2016/04/07/kafka-vs-rocketmq-topic-amout/</a></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_01.png" alt=""></p>
+<h1 id="RocketMq存储文件"><a href="#RocketMq存储文件" class="headerlink" title="RocketMq存储文件"></a>RocketMq存储文件</h1><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_02.png" alt=""></p>
+<ol>
+<li>commitlog ：消息存储目录。</li>
+<li>config ：运行期间一些配置信息，主要包括下列信息<ul>
+<li>consumerFilter.json ：主题消息过滤信息。</li>
+<li>consumerOffset.json ：集群消费模式消息消费进度。</li>
+<li>delayOffset.json：延时消息队列拉取进度</li>
+<li>…</li>
+</ul>
+</li>
+<li>consumeQueue ：消息消费队列存储目录。</li>
+<li>index ：消息索引文件存储目录。</li>
+<li>abort ：如果存在 abort 文件说明Broker 非正常关闭，该文件默认启动时创建，正常退出之前删除。 </li>
+<li>checkpoint：文件检测点，存储 commitlog 文件最后一次刷盘时间戳、 consumeQueue最后一次刷盘时间、 index 索引文件最后一次刷盘时间戳。</li>
+</ol>
+<h2 id="commitlog"><a href="#commitlog" class="headerlink" title="commitlog"></a>commitlog</h2><p>Commitlog文件存储目录为store/commitlog目录，每一个文件默认1个G，一个文件写满后再创建另外一个，以该文件中第一个偏移量为文件名，偏移量小于 20 位用 0 补齐。<br>将消息写入到commitlog后，broker会根据配置去执行同步刷盘或异步刷盘，然后再执行HA机制。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_03.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_04.png" alt=""></p>
+<h2 id="ConsumeQueue文件"><a href="#ConsumeQueue文件" class="headerlink" title="ConsumeQueue文件"></a>ConsumeQueue文件</h2><p>该文件可以看成是 Commitlog 关于消息消费的“索引”文件，consumequeue的第一级目录为消息主题，第二级目录为主题的消息队列。</p>
+<p><strong>为了加速 ConsumeQueue 消息条目的检索速度与节省磁盘空间，每一个 Consumequeue 条目不会存储消息的全量信息。</strong></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_05.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_06.png" alt=""></p>
+<p>单个ConsumeQueue文件中默认包含30万个条目，单个文件的长度为30w× 20字节，单个 ConsumeQueue文件可以看出是一个ConsumeQueue条目的数组，其下标为 ConsumeQueue的逻辑偏移量，消息消费进度存储的偏移量即逻辑偏移量。 ConsumeQueue即为 Commitlog文件的索引文件。</p>
+<p><strong>其构建机制是当消息到达 Commitlog 文件后 ，由专门的线程产生消息转发任务，从而构建消息消费队列文件与下文提到的索引文件。</strong></p>
+<h2 id="Index-索引文件"><a href="#Index-索引文件" class="headerlink" title="Index 索引文件"></a>Index 索引文件</h2><p>RocketMQ引入了Hash索引机制为消息建立索引， HashMap 的设计包含两个基本点 ： Hash槽与Hash冲突的链表结构。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_07.png" alt=""></p>
+<p><strong>IndexHeader头部</strong>，包含40个字节，记录该IndexFile的统计信息，其结构如下。 </p>
+<ul>
+<li>beginTimestamp ：该索引 文件中包含消息 的最小存储时间。</li>
+<li>endTimestamp ： 该索引文件中包含消息的最大存储时间。 </li>
+<li>beginPhyoffset ： 该索引文件中包含消息的最小物理偏移量（ commitlog 文件偏移量）。</li>
+<li>endPhyoffset ：该索引 文件中包含消息 的最大物理偏移量（ commitlog 文件偏移量）。</li>
+<li>hashslotCount: hashslot个数，并不是 hash 槽使用的个数，在这里意义不大。 </li>
+<li>indexCount: Index条目列表当前已使用的个数， Index条目在Index条目列表中按顺序存储。</li>
+</ul>
+<p><strong>Hash槽</strong>， 一个IndexFile默认包含500万个Hash槽，每个Hash 槽存储的是落在该 Hash 槽的 hashcode 最新的 Index 的索引。</p>
+<p><strong>Index条目列表</strong>，默认一个索引文件包含 2000 万个条目，每一个 Index 条目结构如下。</p>
+<ul>
+<li>hashcode:key的 hashcode。</li>
+<li>phyoffset ：消息对应的物理偏移量。</li>
+<li>timedif：该消息存储时间与第一条消息的时间戳的差值，小于 0 该消息无效 。 </li>
+<li>prelndexNo ：<strong>该条目的前一条记录的Index 索引， 当出现hash冲突时 ， 构建的链表结构。</strong></li>
+</ul>
+<h2 id="checkpoint"><a href="#checkpoint" class="headerlink" title="checkpoint"></a>checkpoint</h2><p>checkpoint 的作用是记录 Comitlog 、 ConsumeQueue 、 Index 文件的刷 盘时间点， 固定长度为 4k ，其中只用该文件的前面 24个字节。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/Broker_08.png" alt=""></p>
+<h2 id="实时更新消息队列与与索引文件"><a href="#实时更新消息队列与与索引文件" class="headerlink" title="实时更新消息队列与与索引文件"></a>实时更新消息队列与与索引文件</h2><p>消息消费队列文件、消息属性索引文件都是基于CommitLog文件构建的，当消息生产者提交的消息存储在Commitlog文件中，ConsumeQueue、IndexFile需要及时更新，否则消息无法及时被消费，根据消息属性查找消息也会出现较大延迟。</p>
+<p><strong>RocketMQ通过开启一个线程ReputMessageServcie来准实时转发CommitLog文件更新事件，相应的任务处理器根据转发的消息及时更新ConsumeQueue、IndexFile文件。</strong></p>
+<h2 id="消息队列与与索引文件恢复"><a href="#消息队列与与索引文件恢复" class="headerlink" title="消息队列与与索引文件恢复"></a>消息队列与与索引文件恢复</h2><p>由于RocketMQ存储首先将消息全量存储在Commitlog文件中，然后异步生成转发任务更新ConsumeQueue、Index文件。<strong>如果消息成功存储到Commitlog文件中，转发任务未成功执行，此时消息服务器Broker由于某个原因看机，导致Commitlog、ConsumeQueue、IndexFile文件数据不一致。</strong>如果不加以人工修复的话，会有一部分消息即便在Commitlog文件中存在，但由于并没有转发到Consumequeue，这部分消息将永远不会被消费者消费。</p>
+<p>根据abort是否存在判断是否正常停机</p>
+<ul>
+<li>正常停机，默认从倒数第三个文件开始进行恢复，遍历Commitlog。</li>
+<li>异常停止，需要从最后一个文件往前走，找到第一个消息存储正常的文件。</li>
+</ul>
+<p>如果commitlog目录没有消息文件，如果在消息消费队列目录下存在文件，则需要销毁。</p>
+<h1 id="文件刷盘机制"><a href="#文件刷盘机制" class="headerlink" title="文件刷盘机制"></a>文件刷盘机制</h1><p>RocketMQ的存储与读写是基于JDK NIO的内存映射机制（MappedByteBuffer）的，消息存储时首先将消息追加到内存，再根据配置的刷盘策略在不同时间进行刷写磁盘。</p>
+<ul>
+<li>如果是同步刷盘，消息追加到内存后，将同步调用MappedByteBuffer的force()方法；</li>
+<li>如果是异步刷盘，在消息追加到内存后立刻返回给消息发送端。RocketMQ使用一个单独的线程按照某一个设定的频率执行刷盘操作。</li>
+</ul>
+<p>通过在broker配置文件中配置flushDiskType来设定刷盘方式，可选值为ASYNCFLUSH（异步刷盘）、SYNC_FLUSH（同步刷盘），默认为异步刷盘。</p>
+<h1 id="文件过期机制"><a href="#文件过期机制" class="headerlink" title="文件过期机制"></a>文件过期机制</h1><p>由于RocketMQ操作CommitLog、ConsumeQueu巳文件是基于内存映射机制并在启动的时候会加载commitlog、ConsumeQueue目录下的所有文件，为了避免内存与磁盘的浪费，不可能将消息永久存储在消息服务器上，所以需要引人一种机制来删除己过期的文件。</p>
+<p>RocketMQ清除过期文件的方法是：如果非当前写文件在一定时间间隔内没有再次被更新，则认为是过期文件，可以被删除，RocketMQ不会关注这个文件上的消息是否全部被消费。默认每个文件的过期时间为72小时，通过在Broker配置文件中设置fileReservedTime来改变过期时间，单位为小时.(如果对文件使用touch 命令，会更新文件的时间)</p>
+<p>RocketMQ 在如下三种情况任意之一满足的情况下将继续执行删除文件操作。</p>
+<ol>
+<li>指定删除文件的时间点，RocketMQ通过deleteWhen设置一天的固定时间执行一次删除过期文件操作，默认为凌晨4点。</li>
+<li>磁盘空间是否充足，如果磁盘空间不充足，则返回true，表示应该触发过期文件删除操作。</li>
+<li>预留，手工触发，可以通过调用excuteDeleteFilesManualy方法手工触发过期文件删除，目前RocketMQ暂未封装手工触发文件删除的命令。</li>
+</ol>
+<h1 id="HA"><a href="#HA" class="headerlink" title="HA"></a>HA</h1><h2 id="主从同步"><a href="#主从同步" class="headerlink" title="主从同步"></a>主从同步</h2><p>主要分同步复制和异步复制</p>
+<p>从服务器在启动的时候主动向主服务器建立TCP长连接，然后获取服务器的commitlog最大偏移量，以此偏移量向主服务器主动拉取消息，主服务器根据偏移量，与自身commitlog文件的最大偏移量进行比较，如果大于从服务器的commitlog偏移量，主服务器将向从服务器返回一定数量的消息，该过程循环进行，达到主从服务器数据同步。</p>
+<ul>
+<li>同步复制：保证消息不丢失，但是会影响效率</li>
+<li>异步复制：消息少量丢失，效率更高</li>
+</ul>
+<h2 id="读写分离"><a href="#读写分离" class="headerlink" title="读写分离"></a>读写分离</h2><p>RocketMQ读写分离与其他中间件的实现方式完全不同，RocketMQ是消费者首先向主服务器发起拉取消息请求，然后主服务器返回一批消息，然后会根据主服务器负载压力与主从同步情况，向从服务器建议下次消息拉取是从主服务器还是从从服务器拉取。</p>
+<h2 id="Dlegder"><a href="#Dlegder" class="headerlink" title="Dlegder"></a>Dlegder</h2><p>官方最新的4.5版本已经利用Dlegder（基于raft协议的CommitLog存储库）支持故障转移（failover），当主节点挂后，从节点能自动切换成主节点（前提一组broker有至少有3个以上的奇数节点）</p>
+<p><a href="http://www.jinrongtong5.com/article/53" target="_blank" rel="noopener">RocketMQ的HA机制解析</a><br><a href="https://yq.aliyun.com/articles/720413" target="_blank" rel="noopener">丁威 RocketMQ 整合 DLedger</a><br><a href="https://www.infoq.cn/article/7xeJrpDZBa9v*GDZOFS6" target="_blank" rel="noopener">DLedger选举原理</a>  </p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mq/" rel="tag"># mq</a>
+              <a href="/tags/rocketmq/" rel="tag"># rocketmq</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/06/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq02_Producer/" rel="prev" title="rocketmq02_Producer">
+      <i class="fa fa-chevron-left"></i> rocketmq02_Producer
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/04/08/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq04_Consumer/" rel="next" title="rocketmq04_Consumer">
+      rocketmq04_Consumer <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#存储概要设计"><span class="nav-number">1.</span> <span class="nav-text">存储概要设计</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#RocketMq存储文件"><span class="nav-number">2.</span> <span class="nav-text">RocketMq存储文件</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#commitlog"><span class="nav-number">2.1.</span> <span class="nav-text">commitlog</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ConsumeQueue文件"><span class="nav-number">2.2.</span> <span class="nav-text">ConsumeQueue文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Index-索引文件"><span class="nav-number">2.3.</span> <span class="nav-text">Index 索引文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#checkpoint"><span class="nav-number">2.4.</span> <span class="nav-text">checkpoint</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#实时更新消息队列与与索引文件"><span class="nav-number">2.5.</span> <span class="nav-text">实时更新消息队列与与索引文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息队列与与索引文件恢复"><span class="nav-number">2.6.</span> <span class="nav-text">消息队列与与索引文件恢复</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#文件刷盘机制"><span class="nav-number">3.</span> <span class="nav-text">文件刷盘机制</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#文件过期机制"><span class="nav-number">4.</span> <span class="nav-text">文件过期机制</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#HA"><span class="nav-number">5.</span> <span class="nav-text">HA</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#主从同步"><span class="nav-number">5.1.</span> <span class="nav-text">主从同步</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#读写分离"><span class="nav-number">5.2.</span> <span class="nav-text">读写分离</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Dlegder"><span class="nav-number">5.3.</span> <span class="nav-text">Dlegder</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

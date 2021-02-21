@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="索引组织表在 InnoDB存储引擎中,表都是根据主键顺序组织存放的,这种存储方式的表称为索引组织表( index organized table)。 在 InnoDB存储引擎表中,每张表都有个主键( Primary Key),如果在创建表时没有显式地定义主键,则InnoDB存储引擎会按如下方式选择或创建主键:  首先判断表中是否有非空的唯一索引( Unique NOT NULI),如果有,则该列即">
+<meta name="keywords" content="mysql">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mysql03_Innodb数据存储结构">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;08&#x2F;17&#x2F;%E6%95%B0%E6%8D%AE%E5%BA%93&#x2F;mysql&#x2F;mysql03_Innodb%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="索引组织表在 InnoDB存储引擎中,表都是根据主键顺序组织存放的,这种存储方式的表称为索引组织表( index organized table)。 在 InnoDB存储引擎表中,每张表都有个主键( Primary Key),如果在创建表时没有显式地定义主键,则InnoDB存储引擎会按如下方式选择或创建主键:  首先判断表中是否有非空的唯一索引( Unique NOT NULI),如果有,则该列即">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_03_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_03_03.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_03_02.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_03_04.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_03_05.png">
+<meta property="og:updated_time" content="2020-05-10T15:01:58.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_03_01.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/08/17/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql03_Innodb%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>mysql03_Innodb数据存储结构 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/08/17/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql03_Innodb%E6%95%B0%E6%8D%AE%E5%AD%98%E5%82%A8%E7%BB%93%E6%9E%84/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          mysql03_Innodb数据存储结构
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-17 20:30:00" itemprop="dateCreated datePublished" datetime="2019-08-17T20:30:00+08:00">2019-08-17</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-05-10 23:01:58" itemprop="dateModified" datetime="2020-05-10T23:01:58+08:00">2020-05-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="索引组织表"><a href="#索引组织表" class="headerlink" title="索引组织表"></a>索引组织表</h1><p>在 InnoDB存储引擎中,表都是根据主键顺序组织存放的,这种存储方式的表称<br>为<strong>索引组织表</strong>( index organized table)。</p>
+<p>在 InnoDB存储引擎表中,每张表都有个主键( Primary Key),如果在创建表时没有显式地定义主键,则InnoDB存储引擎会按如下方式选择或创建主键:</p>
+<ol>
+<li>首先判断表中是否有非空的唯一索引( Unique NOT NULI),如果有,则该列即为主键。</li>
+<li>如果不符合上述条件, InnoDB存储引擎自动创建一个6字节大小的指针。</li>
+</ol>
+<p>当表中有多个非空唯一索引时, InnoDB存储引擎将选择建表时<strong>第一个定义的非空唯索引为主键</strong>。<strong>主键的选择根据的是定义索引的顺序,而不是建表时列的顺序。</strong></p>
+<a id="more"></a>
+
+<h1 id="InnoDB逻辑存储结构"><a href="#InnoDB逻辑存储结构" class="headerlink" title="InnoDB逻辑存储结构"></a>InnoDB逻辑存储结构</h1><p>从 InnoDB存储引擎的逻辑存储结构看,<strong>所有数据都被逻辑地存放在一个空间中,称之为表空间( tablespace)</strong>。<strong>表空间又由段( segment)、区( extent)、页(page)组成。</strong></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_03_01.png" alt=""></p>
+<h2 id="表空间"><a href="#表空间" class="headerlink" title="表空间"></a>表空间</h2><p>表空间可以看做是 InnoDB存储引擎逻辑结构的最高层,所有的数据都存放在表空间中，即.idb文件。</p>
+<p>每张表的独立表空间内存放的只是数据、索引和插入缓冲 Bitmap页,其他类的数据,如回滚(undo)信息,插人缓冲索引页、系统事务信息,二次写缓冲( Double write buffer)等还是存放在原来的共享表空间内。</p>
+<h2 id="段"><a href="#段" class="headerlink" title="段"></a>段</h2><p>常见的段有数据段、索引段、回滚段等。</p>
+<ol>
+<li>数据段即为B+树的叶子节点(Leaf node segment)</li>
+<li>索引段即为B+树的非索引节点(Non-leaf node segment)</li>
+<li>回滚段(undo log)</li>
+</ol>
+<p>在每个段开始时,先用32个页大小的碎片页来存放数据,在使用完这些页之后才是64个连续页的申请。</p>
+<h2 id="区"><a href="#区" class="headerlink" title="区"></a>区</h2><p>区是由连续页组成的空间,<strong>在任何情况下每个区的大小都为MB</strong>。</p>
+<p>为了保证区中页的连续性, InnoDB存储引擎一次从磁盘申请4~5个区。</p>
+<p>在默认情况下, <strong>InnoDB存储引擎页的大小为16KB</strong>,即一个区中一共有64个连续的页。</p>
+<h2 id="页"><a href="#页" class="headerlink" title="页"></a>页</h2><p><strong>页是InnoDB磁盘管理的最小单位。</strong></p>
+<p><strong>在 InnoDe存储引擎中,默认每个页的大小为16KB。</strong></p>
+<p>在 InnoDB存储引擎中,常见的页类型有:</p>
+<ol>
+<li>数据页(B-tree Node)</li>
+<li><strong>undo页</strong>( undo Log Page</li>
+<li>系统页( System Page)</li>
+<li>事务数据页( Transaction system Page)</li>
+<li>插入缓冲位图页( Insert Buffer Bitmap）</li>
+<li>插入缓冲空闲列表页( Insert Buffer Free List）</li>
+<li>未压缩的二进制大对象页( Uncompressed BLOB Page)</li>
+<li>压缩的二进制大对象页( compressed BLOB Page)</li>
+</ol>
+<h2 id="行"><a href="#行" class="headerlink" title="行"></a>行</h2><p>InnoDB存储引擎中数据是按行进行存放的。</p>
+<p>每个页存放的行记录也是有硬性定义的,最多允许存放16KB/2-200行的记录,即7992行记录。</p>
+<blockquote>
+<p>   出于性能考虑，一页中太多行数据性能不好</p>
+</blockquote>
+<h1 id="InnoDB行记录格式"><a href="#InnoDB行记录格式" class="headerlink" title="InnoDB行记录格式"></a>InnoDB行记录格式</h1><p>行记录格式类型</p>
+<ol>
+<li>Redundant (mysql5.0之前)</li>
+<li>Compact (mysql5.0开始加入)</li>
+<li>Compressed (InnoDB 1.0.x开始)</li>
+<li>Dynamic (InnoDB 1.0.x开始)</li>
+</ol>
+<p>以前支持的 Compact和 Redundant格式称为 <strong>Antelope文件格式</strong>,新的文件格式称为 <strong>Barracuda文件格式</strong>。</p>
+<p>Barracuda文件格式下拥有两种新的行记录格式: <strong>Compressed和 Dynamic</strong> 新的两种记录格式对于存放在BLOB中的数据采用了<strong>完全的行溢出的方式</strong>,在数据页中只存放20个字节的指针,实际的数据都存放在 Off Page中,</p>
+<p>之前的<strong>Compact和 Redundant两种格式会存放768个前缀字节。</strong></p>
+<p>Compressed行记录格式的另一个功能就是,存储在其中的行数据会以zlib的算法进行压缩,因此对于BLOB、TEXT、 VARCHAR这类大长度类型的数据能够进行非常有效的存储。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_03_03.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_03_02.png" alt=""></p>
+<p>VARCHAR(N)中的N指的是字符的长度,而文档中说明VARCHAR类型最大支持65535,单位是字节。(<strong>不同的编码方式会影响最大长度</strong>)</p>
+<p><strong>MySQL官方手册中定义的65535度是指所有VARCHAR列的长度总和</strong>,如果列的长度总和超出这个长度,依然无法创建表。</p>
+<h1 id="InnoDB-数据页结构"><a href="#InnoDB-数据页结构" class="headerlink" title="InnoDB 数据页结构"></a>InnoDB 数据页结构</h1><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_03_04.png" alt=""></p>
+<h2 id="File-Header"><a href="#File-Header" class="headerlink" title="File Header"></a>File Header</h2><p>File header用来记录页的一些头信息,共占用38字节</p>
+<h2 id="Page-Header"><a href="#Page-Header" class="headerlink" title="Page Header"></a>Page Header</h2><p>接着 File header部分的是 Page Header,该部分用来记录数据页的状态信息,由14个部分组成,共占用56字节。</p>
+<h2 id="Infimum-和-Supremum-Record"><a href="#Infimum-和-Supremum-Record" class="headerlink" title="Infimum 和 Supremum Record"></a>Infimum 和 Supremum Record</h2><p>在 InnoDB存储引擎中,<strong>每个数据页中有两个虚拟的行记录,用来限定记录的边界。</strong> </p>
+<p><strong>Infimum记录是比该页中任何主键值都要小的值</strong><br><strong>Supremum指比任何可能大的值还要大的值</strong><br><strong>两个值在页创建时被建立,并且在任何情况下不会被删除</strong>  </p>
+<h2 id="User-Record-和-Free-Space"><a href="#User-Record-和-Free-Space" class="headerlink" title="User Record 和 Free Space"></a>User Record 和 Free Space</h2><p>User record就实际存储行记录的内容。</p>
+<p>Free Space很明显指的就是空闲空间,同样也是个链表数据结构。在一条记录被删除后,该空间会被加入到空闲链表中。</p>
+<h2 id="Page-Directory-页目录"><a href="#Page-Directory-页目录" class="headerlink" title="Page Directory(页目录)"></a>Page Directory(页目录)</h2><p>Page Directory页叫做页目录，存放了记录的<strong>相对位置</strong>,有些时候这些记录指针称为 槽 (Slots)或目录槽( Directory Slots)。</p>
+<p>InnoDB存储引擎的槽是一个稀疏目录( sparse directory),即一个槽中可能包含多个记录。当记录被插人或删除时需要对槽进行分裂或平衡的维护操作。</p>
+<p>在Slots中记录按照索引键值顺序存放,这样可以利用二叉查找迅速找到记录的指针。</p>
+<p><strong>B+树索引本身并不能找到具体的一条记录,能找到只是该记录所在的页!!!</strong></p>
+<p><strong>数据库把页载入到内存,然后通过Page Directory再进行二叉查找。</strong>只不过二叉查找的时间复杂度很低,同时在内存中的查找很快,因此通常忽略这部分查找所用的时间。</p>
+<h3 id="槽细节深入"><a href="#槽细节深入" class="headerlink" title="槽细节深入"></a>槽细节深入</h3><ol>
+<li>将所有正常的记录（包括最大和最小记录，不包括标记为已删除的记录）划分为几个组。</li>
+<li>每个组的最后一条记录的头信息中的n_owned属性表示该组内共有几条记录。</li>
+<li>将每个组的最后一条记录的地址偏移量按顺序存储起来，每个地址偏移量也被称为一个槽（英文名：Slot）。这些地址偏移量都会被存储到靠近页的尾部的地方，页中存储地址偏移量的部分也被称为Page Directory 。</li>
+</ol>
+<p>InnoDB 对每个分组中的记录条数是有规定的，<strong>对于最小记录所在的分组只能有 1 条记录，最大记录所在的分组拥有的记录条数只能在 1<del>8 条之间，剩下的分组中记录的条数范围只能在是 4</del>8 条之间。</strong></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_03_05.png" alt=""></p>
+<p><strong>所以在一个数据页中查找指定主键值的记录的过程分为两步：</strong></p>
+<ol>
+<li>通过二分法确定该记录所在的槽。</li>
+<li>通过记录的next_record属性组成的链表遍历查找该槽中的各个记录。</li>
+</ol>
+<p>参考博客<a href="https://juejin.im/post/5cb3e3dfe51d456e3428c0db" target="_blank" rel="noopener">InnoDB数据页结构</a></p>
+<h2 id="File-Trailer"><a href="#File-Trailer" class="headerlink" title="File Trailer"></a>File Trailer</h2><p>为了检测页是否已经完整地写人磁盘(如可能发生的写入过程中磁盘损坏、机器关机等), InnoDB存储引擎的页中设置了 File trailer部分。</p>
+<ul>
+<li>前四个字节代表页的检验和</li>
+<li>后四个字节代表日志序列位置（LSN）</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql/" rel="tag"># mysql</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/08/16/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql02_Innodb%E5%AD%98%E5%82%A8%E5%BC%95%E6%93%8E/" rel="prev" title="mysql02_Innodb存储引擎">
+      <i class="fa fa-chevron-left"></i> mysql02_Innodb存储引擎
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/18/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql04_InnoDB%E7%B4%A2%E5%BC%95/" rel="next" title="mysql04_InnoDB索引">
+      mysql04_InnoDB索引 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#索引组织表"><span class="nav-number">1.</span> <span class="nav-text">索引组织表</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#InnoDB逻辑存储结构"><span class="nav-number">2.</span> <span class="nav-text">InnoDB逻辑存储结构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#表空间"><span class="nav-number">2.1.</span> <span class="nav-text">表空间</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#段"><span class="nav-number">2.2.</span> <span class="nav-text">段</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#区"><span class="nav-number">2.3.</span> <span class="nav-text">区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#页"><span class="nav-number">2.4.</span> <span class="nav-text">页</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#行"><span class="nav-number">2.5.</span> <span class="nav-text">行</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#InnoDB行记录格式"><span class="nav-number">3.</span> <span class="nav-text">InnoDB行记录格式</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#InnoDB-数据页结构"><span class="nav-number">4.</span> <span class="nav-text">InnoDB 数据页结构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#File-Header"><span class="nav-number">4.1.</span> <span class="nav-text">File Header</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Page-Header"><span class="nav-number">4.2.</span> <span class="nav-text">Page Header</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Infimum-和-Supremum-Record"><span class="nav-number">4.3.</span> <span class="nav-text">Infimum 和 Supremum Record</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#User-Record-和-Free-Space"><span class="nav-number">4.4.</span> <span class="nav-text">User Record 和 Free Space</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Page-Directory-页目录"><span class="nav-number">4.5.</span> <span class="nav-text">Page Directory(页目录)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#槽细节深入"><span class="nav-number">4.5.1.</span> <span class="nav-text">槽细节深入</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#File-Trailer"><span class="nav-number">4.6.</span> <span class="nav-text">File Trailer</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

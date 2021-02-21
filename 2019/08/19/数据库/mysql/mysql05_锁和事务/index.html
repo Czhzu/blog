@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="锁的类型根据加锁的范围，MySQL里面的锁大致可以分成全局锁、表级锁和行锁三类。">
+<meta name="keywords" content="mysql">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mysql05_锁和事务">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;08&#x2F;19&#x2F;%E6%95%B0%E6%8D%AE%E5%BA%93&#x2F;mysql&#x2F;mysql05_%E9%94%81%E5%92%8C%E4%BA%8B%E5%8A%A1&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="锁的类型根据加锁的范围，MySQL里面的锁大致可以分成全局锁、表级锁和行锁三类。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_05_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_05_02.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_05_03.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_05_04.png">
+<meta property="og:updated_time" content="2020-08-31T05:07:48.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_05_01.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/08/19/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql05_%E9%94%81%E5%92%8C%E4%BA%8B%E5%8A%A1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>mysql05_锁和事务 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/08/19/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql05_%E9%94%81%E5%92%8C%E4%BA%8B%E5%8A%A1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          mysql05_锁和事务
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-19 20:30:00" itemprop="dateCreated datePublished" datetime="2019-08-19T20:30:00+08:00">2019-08-19</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-08-31 13:07:48" itemprop="dateModified" datetime="2020-08-31T13:07:48+08:00">2020-08-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="锁的类型"><a href="#锁的类型" class="headerlink" title="锁的类型"></a>锁的类型</h1><p>根据加锁的范围，MySQL里面的锁大致可以分成<strong>全局锁</strong>、<strong>表级锁</strong>和<strong>行锁</strong>三类。</p>
+<a id="more"></a>
+
+<p><strong>全局锁</strong><br>全局锁就是对整个数据库实例加锁。MySQL提供了一个加全局读锁的方法，命令是 Flush tables with read lock (FTWRL)。当你需要让整个库处于只读状态的时候，可以使用这个命令，之后其他线程的以下语句会被阻塞：数据更新语句（数据的增删改）、数据定义语句（包括建表、修改表结构等）和更新类事务的提交语句。<br><strong>全局锁的典型使用场景是，做全库逻辑备份。</strong></p>
+<p>官方自带的逻辑备份工具是mysqldump。当mysqldump使用参数–single-transaction的时候，导数据之前就会启动一个事务，来确保拿到一致性视图。而由于MVCC的支持，这个过程中数据是可以正常更新的。</p>
+<p><strong>single-transaction方法只适用于所有的表使用事务引擎的库。</strong><br><strong>MyISAM不支持事务，逻辑备份只能锁整个数据库实例。</strong></p>
+<p><strong>表级锁</strong>分为两类</p>
+<ol>
+<li><p>表锁</p>
+<blockquote>
+<p>   表锁的语法是 lock tables … read/write。在还没有出现更细粒度的锁的时候，表锁是最常用的处理并发的方式。</p>
+</blockquote>
+</li>
+<li><p>元数据锁（meta data lock，MDL)</p>
+<blockquote>
+<p>   MDL不需要显式使用，在访问一个表的时候会被自动加上。MDL的作用是，保证读写的正确性。在MySQL 5.5版本中引入了MDL，当对一个表做增删改查操作的时候，加MDL读锁；当要对表做结构变更操作的时候，加MDL写锁。</p>
+</blockquote>
+</li>
+</ol>
+<p><strong>MDL锁是系统默认会加的</strong>，但却是你不能忽略的一个机制。<br>经常看到有人掉到这个坑里：给一个小表加个字段，导致整个库挂了。<br>MDL会直到事务提交才释放，在做表结构变更的时候，一定要小心不要导致锁住线上查询和更新。</p>
+<p><strong>如何安全地给小表加字段？</strong><br>首先要解决长事务，事务不提交，就会一直占着MDL锁。虽然5.6版本支持了Online DDL，具体过程如下:</p>
+<ol>
+<li>拿MDL写锁</li>
+<li>降级成MDL读锁</li>
+<li>真正做DDL</li>
+<li>升级成MDL写锁</li>
+<li>释放MDL锁</li>
+</ol>
+<p>1、2、4、5如果没有锁冲突，执行时间非常短。第3步占用了DDL绝大部分时间，这期间这个表可以正常读写数据，是因此称为“online ”。解决长事务就是为了避免出现锁冲突。</p>
+<p><strong>行锁</strong><br><strong>行锁就是针对数据表中行记录的锁。</strong>这很好理解，比如事务A更新了一行，而这时候事务B也要更新同一行，则必须等事务A的操作完成后才能进行更新。</p>
+<p><strong>两阶段锁协议</strong>：在InnoDB事务中，行锁是在需要的时候才加上的，但并不是不需要了就立刻释放，而是要等到事务结束时才释放。</p>
+<h1 id="死锁和死锁检查"><a href="#死锁和死锁检查" class="headerlink" title="死锁和死锁检查"></a>死锁和死锁检查</h1><p><strong>死锁是指两个或两个以上的事务在执行过程中,因争夺锁资源而造成的一种互相等待的现象。</strong>若无外力作用,事务都将无法推进下去。</p>
+<p>解决死锁的方法：</p>
+<ol>
+<li><p><strong>等待超时</strong></p>
+<blockquote>
+<p>   即当两个事务互相等待时,当一个等待时间超过设置的某一阈值时,其中一个事务进行回滚,另一个等待的事务就能继续进行。这个超时时间可以通过参数innodb_lock_wait_timeout来设置,默认值是50s。等待时间太长，业务无法接受，太短容易造成误伤把正常事务也干掉了。</p>
+</blockquote>
+</li>
+<li><p><strong>主动死锁检测</strong></p>
+<blockquote>
+<p>   发起死锁检测，发现死锁后，主动回滚死锁链条中的某一个事务，让其他事务得以继续执行。将参数innodb_deadlock_detect设置为on，表示开启这个逻辑(默认开启)。当前数据库还都普遍采用 wait-for graph(等待图)的方式来进行死锁检测。较之超时的解决方案,这是一种更为主动的死锁检测方式。 </p>
+</blockquote>
+</li>
+</ol>
+<h1 id="事务"><a href="#事务" class="headerlink" title="事务"></a>事务</h1><p>事务是并发控制单位，是用户定义的一个操作序列，这些操作要么都做，要么都不做，是一个不可分割的工作单位。</p>
+<h2 id="ACID特性"><a href="#ACID特性" class="headerlink" title="ACID特性"></a>ACID特性</h2><p>事务需要满足ACID四个特性：</p>
+<ul>
+<li><p>A (Atomicity) 原子性。</p>
+<blockquote>
+<p>   原子性是指事务包含的所有操作要么全部成功，要么全部失败回滚。</p>
+</blockquote>
+</li>
+<li><p>C (Consistency) 一致性。</p>
+<blockquote>
+<p>   一致性是指事务必须使数据库从一个一致性状态变换到另一个一致性状态，也就是说一个事务执行之前和执行之后都必须处于一致性状态。</p>
+</blockquote>
+</li>
+<li><p>I (Isolation) 隔离性</p>
+<blockquote>
+<p>   事务的隔离性要求每个读写事务的对象对其他事务的操作对象能相互分离,即该<strong>事务提交前对其他事务都不可见</strong>,</p>
+</blockquote>
+</li>
+<li><p>D (Durability) 持久性</p>
+<blockquote>
+<p>   事务一旦提交,其结果就是永久性的。即使发生宕机等故障,数据库也能将数据恢复。</p>
+</blockquote>
+</li>
+</ul>
+<h2 id="SQL标准中的事务隔离级别"><a href="#SQL标准中的事务隔离级别" class="headerlink" title="SQL标准中的事务隔离级别"></a>SQL标准中的事务隔离级别</h2><p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_05_01.png" alt=""></p>
+<h3 id="READ-UNCOMMITTED（读未提交）"><a href="#READ-UNCOMMITTED（读未提交）" class="headerlink" title="READ UNCOMMITTED（读未提交）"></a>READ UNCOMMITTED（读未提交）</h3><p>该隔离级别的事务会读到其它未提交事务的数据，此现象也称之为<strong>脏读</strong>。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">##准备</span></span><br><span class="line"><span class="keyword">SET</span> @@session.transaction_isolation = <span class="string">'READ-UNCOMMITTED'</span>;</span><br><span class="line"><span class="keyword">create</span> <span class="keyword">database</span> <span class="keyword">test</span>;</span><br><span class="line"><span class="keyword">use</span> <span class="keyword">test</span>;</span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">test</span>(<span class="keyword">id</span> <span class="built_in">int</span> primary <span class="keyword">key</span>);</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> <span class="keyword">test</span>(<span class="keyword">id</span>) <span class="keyword">values</span>(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">##登录 mysql 终端 1，开启一个事务，将 ID 为 1 的记录更新为 2。</span></span><br><span class="line"><span class="keyword">begin</span>;</span><br><span class="line"><span class="keyword">update</span> <span class="keyword">test</span> <span class="keyword">set</span> <span class="keyword">id</span> = <span class="number">2</span> <span class="keyword">where</span> <span class="keyword">id</span> = <span class="number">1</span>;</span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">test</span>; <span class="comment">-- 此时看到一条ID为2的记录 此事未提交事务</span></span><br><span class="line"></span><br><span class="line"><span class="comment">##登录 mysql 终端 2，开启一个事务后查看表中的数据。</span></span><br><span class="line"><span class="keyword">use</span> <span class="keyword">test</span>;</span><br><span class="line"><span class="keyword">begin</span>;</span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">test</span>; <span class="comment">-- 此时看到一条 ID 为 2 的记录</span></span><br></pre></td></tr></table></figure>
+<h3 id="READ-COMMITTED（读提交）"><a href="#READ-COMMITTED（读提交）" class="headerlink" title="READ COMMITTED（读提交）"></a>READ COMMITTED（读提交）</h3><p>一个事务可以读取另一个已提交的事务，多次读取会造成不一样的结果，此现象称为<strong>不可重复读问题</strong>。在同一个事务里面，读取会不一致。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">##准备</span></span><br><span class="line"><span class="keyword">SET</span> @@session.transaction_isolation = <span class="string">'READ-COMMITTED'</span>;</span><br><span class="line"><span class="keyword">create</span> <span class="keyword">database</span> <span class="keyword">test</span>;</span><br><span class="line"><span class="keyword">use</span> <span class="keyword">test</span>;</span><br><span class="line"><span class="keyword">create</span> <span class="keyword">table</span> <span class="keyword">test</span>(<span class="keyword">id</span> <span class="built_in">int</span> primary <span class="keyword">key</span>);</span><br><span class="line"><span class="keyword">insert</span> <span class="keyword">into</span> <span class="keyword">test</span>(<span class="keyword">id</span>) <span class="keyword">values</span>(<span class="number">1</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">##登录 mysql 终端 1，开启一个事务，将 ID 为 1 的记录更新为 2，并确认记录数变更过来。</span></span><br><span class="line"><span class="keyword">begin</span>;</span><br><span class="line"><span class="keyword">update</span> <span class="keyword">test</span> <span class="keyword">set</span> <span class="keyword">id</span> = <span class="number">2</span> <span class="keyword">where</span> <span class="keyword">id</span> = <span class="number">1</span>;</span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">test</span>; <span class="comment">-- 此时看到一条记录为 2</span></span><br><span class="line"></span><br><span class="line"><span class="comment">##登录 mysql 终端 2，开启一个事务后，查看表中的数据。</span></span><br><span class="line"><span class="keyword">use</span> <span class="keyword">test</span>;</span><br><span class="line"><span class="keyword">begin</span>;</span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">test</span>; <span class="comment">-- 此时看一条 ID 为 1 的记录</span></span><br><span class="line"></span><br><span class="line"><span class="comment">## 登录 mysql 终端 1，提交事务。</span></span><br><span class="line"><span class="keyword">commit</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">## 切换到 mysql 终端 2。</span></span><br><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">test</span>; <span class="comment">-- 此时看到一条 ID 为 2 的记录</span></span><br></pre></td></tr></table></figure>
+
+<p>Mysql使用了多版本并发控制(MVCC) 实现了RC级别的事务隔离。</p>
+<h3 id="REPEATABLE-READ（可重复读）"><a href="#REPEATABLE-READ（可重复读）" class="headerlink" title="REPEATABLE READ（可重复读）"></a>REPEATABLE READ（可重复读）</h3><p>REPEATABLE READ解决了脏读的问题。该级别保证了在同一个事务中多次读取同样记录的结果是一致的。但是<strong>可重复读隔离级别还是无法解决另外一个幻读的问题</strong>。</p>
+<p><strong>幻读</strong>指的是当某个事务在<strong>读取某个范围内的记录</strong>时,另外一个事务又在该范围内<strong>插入了新的记录</strong>,当之前的事务<strong>再次读取该范围的记录</strong>时,会产生幻行( Phantom row)。</p>
+<p>很多人容易搞混不可重复读和幻读，确实这两者有些相似。但<strong>不可重复读重点在于update和delete</strong>，而<strong>幻读的重点在于insert</strong>。</p>
+<p>可重复读是 MySQL的默认事务隔离级别。</p>
+<p>为了解决当前读中的幻读问题，InnoDB事务使用了Next-Key锁。</p>
+<blockquote>
+<p>   sql标准允许在RR级别下出现幻读的问题，但是InnoDB事务使用了Next-Key锁避免了幻读的问题。</p>
+</blockquote>
+<h3 id="SERIALIZABLE（序列化）"><a href="#SERIALIZABLE（序列化）" class="headerlink" title="SERIALIZABLE（序列化）"></a>SERIALIZABLE（序列化）</h3><p>在该隔离级别下事务都是串<strong>行顺序执行</strong>的，MySQL 数据库的 InnoDB 引擎会给读操作隐式加一把读共享锁，从而避免了脏读、不可重读复读和幻读问题。</p>
+<p>事务隔离级别参考</p>
+<p><a href="https://github.com/Yhzhtk/note/issues/42" target="_blank" rel="noopener">Innodb 中 RR 隔离级别能否防止幻读？</a><br><a href="https://tech.meituan.com/2014/08/20/innodb-lock.html" target="_blank" rel="noopener">Innodb中的事务隔离级别和锁的关系</a><br><a href="https://www.ibm.com/developerworks/cn/opensource/os-mysql-transaction-isolation-levels-and-locks/index.html" target="_blank" rel="noopener">MySQL 事务隔离级别和锁</a><br>高性能mysql</p>
+<h1 id="行锁的三种算法"><a href="#行锁的三种算法" class="headerlink" title="行锁的三种算法"></a>行锁的三种算法</h1><p>InnoDB 存储引擎使用三种行锁的算法用来满足相关事务隔离级别的要求。</p>
+<p><strong>Record Locks</strong></p>
+<blockquote>
+<p>该锁为索引记录上的锁，如果表中没有定义索引，InnoDB 会默认为该表创建一个隐藏的聚簇索引，并使用该索引锁定记录。</p>
+</blockquote>
+<p><strong>Gap Locks</strong></p>
+<blockquote>
+<p>该锁会锁定一个范围，但是不括记录本身。</p>
+</blockquote>
+<p><strong>Next-key Locks</strong></p>
+<blockquote>
+<p>该锁就是 Record Locks 和 Gap Locks 的组合，即<strong>锁定一个范围并且锁定该记录本身</strong>。</p>
+</blockquote>
+<p>在Next-KeyLock算法下, InnoDB对于行的查询都是采用这种锁定算法。例如一个索引有10,11,<br>13和20这四个值,那么该索引可能被 Next-Key Locking的区间为:<br>(-∞ 10] ，(10,11]，(11,13]，(13,20]，(20,+∞)</p>
+<blockquote>
+<p>采用 Next-Key Lock的锁定技术称为 Next-Key Locking。除了 next-key locking,还<br>有 previous- key locking技术。同样上述的索引10、11、13和20,若采用 previous-key<br>locking技术,那么可锁定的区间为:(-∞ 10) ，[10,11)，[11,13)，[3,20)，[20,+∞)</p>
+</blockquote>
+<p>若事务T1已经通过next- key locking锁定了如下范围:<br>(10,11]、(11,13]  </p>
+<p>此时其他事物无法在10-13中插入数据，比如无法插入12</p>
+<p>行锁防止别的事务修改或删除，GAP锁防止别的事务新增，行锁和GAP锁结合形成的的Next-Key锁共同解决了RR级别在写数据时的幻读问题。</p>
+<p>详细见 <strong>Mysql技术内幕 InnoDB引擎</strong></p>
+<h1 id="事务的实现"><a href="#事务的实现" class="headerlink" title="事务的实现"></a>事务的实现</h1><h2 id="多版本并发控制-MVCC"><a href="#多版本并发控制-MVCC" class="headerlink" title="多版本并发控制(MVCC)"></a>多版本并发控制(MVCC)</h2><p>MVCC是通过在每行记录后面保存两个隐藏的列来实现的。这两个列，一个保存了行的创建时间，一个保存行的过期时间（或删除时间）。当然存储的并不是实际的时间值，而是系统版本号（system version number)。<br>每开始一个新的事务，系统版本号都会自动递增。事务开始时刻的系统版本号会作为事务的版本号，用来和查询到的每行记录的版本号进行比较。</p>
+<p>在可重复读隔离级别下，事务在启动的时候就“拍了个快照”。注意，这个快照是基于整库的。</p>
+<p>InnoDB里面每个事务有一个唯一的事务ID，叫作<strong>transaction id</strong>。它是在事务开始的时候向InnoDB的事务系统申请的，是按申请顺序严格递增的。</p>
+<p>而<strong>每行数据也都是有多个版本的</strong>。每次事务更新数据的时候，都会生成一个新的数据版本，并且把transaction id赋值给这个数据版本的事务ID，记为<strong>row trx_id</strong>。同时，旧的数据版本要保留，并且在新的数据版本中，能够有信息可以直接拿到它。</p>
+<p><strong>数据表中的一行记录，其实可能有多个版本(row)，每个版本有自己的row trx_id。</strong></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_05_02.png" alt=""></p>
+<p>图中的三个虚线箭头，就是undo log；而V1、V2、V3并不是物理上真实存在的，而是每次需要的时候根据当前版本和undo log计算出来的。比如，需要V2的时候，就是通过V4依次执行U3、U2算出来。</p>
+<p>按照可重复读的定义，<strong>一个事务启动的时候，能够看到所有已经提交的事务结果。但是之后，这个事务执行期间，其他事务的更新对它不可见。</strong><br>InnoDB为每个事务构造了一个数组，用来保存这个事务启动瞬间，当前正在“活跃”的所有事务ID。“活跃”指的就是，启动了但还没提交。<br>数组里面事务ID的最小值记为低水位，当前系统里面已经创建过的事务ID的最大值加1记为高水位。<br>这个视图数组和高水位，就组成了当前事务的一致性视图（read-view）。  </p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_05_03.png" alt=""></p>
+<p>对于当前事务的启动瞬间来说，一个数据版本的row trx_id，有以下几种可能：</p>
+<ol>
+<li>如果落在绿色部分，表示这个版本是已提交的事务或者是当前事务自己生成的，这个数据是可见的；</li>
+<li>如果落在红色部分，表示这个版本是由将来启动的事务生成的，是肯定不可见的；</li>
+<li>如果落在黄色部分，那就包括两种情况<ul>
+<li>若 row trx_id在数组中，表示这个版本是由还没提交的事务生成的，不可见；</li>
+<li>若 row trx_id不在数组中，表示这个版本是已经提交了的事务生成的，可见。</li>
+</ul>
+</li>
+</ol>
+<p><strong>更新数据都是先读后写的，而这个读，只能读当前的值，称为“当前读”（current read）。</strong>（不用于上面说的水位，只能获取到数据的最后一个版本，不做往前计算的逻辑）</p>
+<p><strong>可重复读的核心就是一致性读（consistent read）；而事务更新数据的时候，只能用当前读。如果当前的记录的行锁被其他事务占用的话，就需要进入锁等待。</strong></p>
+<p>读提交的逻辑和可重复读的逻辑类似，它们最主要的区别是：</p>
+<ul>
+<li>在可重复读隔离级别下，只需要在事务开始的时候创建一致性视图，之后事务里的其他查询都共用这个一致性视图；</li>
+<li>在读提交隔离级别下，每一个语句执行前都会重新算出一个新的视图。(每次获取到最新的版本，就可以看到已提交的数据)</li>
+</ul>
+<p>参考： mysql45讲 第八讲</p>
+<h3 id="快照读与当前读"><a href="#快照读与当前读" class="headerlink" title="快照读与当前读"></a>快照读与当前读</h3><p>在RR级别中，通过MVCC机制，虽然让数据变得可重复读，但我们读到的数据可能是历史数据，不是数据库最新的数据。这种读取历史数据的方式，我们叫它快照读 (snapshot read)，而读取数据库最新版本数据的方式，叫当前读 (current read)。</p>
+<p><strong>1. 快照读</strong><br>当执行select操作是innodb默认会执行快照读，会记录下这次select后的结果，之后select 的时候就会返回这次快照的数据，即使其他事务提交了不会影响当前select的数据，这就实现了可重复读了。</p>
+<p>快照的生成当在第一次执行select的时候，也就是说假设当A开启了事务，然后没有执行任何操作，这时候B insert了一条数据然后commit,这时候A执行 select，那么返回的数据中就会有B添加的那条数据。</p>
+<p>之后无论再有其他事务commit都没有关系，因为快照已经生成了，后面的select都是根据快照来的。</p>
+<p><strong>2. 当前读</strong><br><strong>对于会对数据修改的操作(update、insert、delete)都是采用当前读的模式。</strong></p>
+<p>在执行这几个操作时会读取最新的记录，即使是别的事务提交的数据也可以查询到。假设要update一条记录，但是在另一个事务中已经delete掉这条数据并且commit了，如果update就会产生冲突，所以在update的时候需要知道最新的数据。</p>
+<h2 id="redo"><a href="#redo" class="headerlink" title="redo"></a>redo</h2><p>redo log用来实现事务的持久性。其由两部分组成:</p>
+<ol>
+<li>redo log buffer,其是易失的</li>
+<li>redo log file,其是持久的</li>
+</ol>
+<p><strong>当事务提交时,必须先将该事务的所有重做日志写入到重做日志文件进行持久化,该事务的COMMIT操作完成才算完成。</strong><br>为了确保每次日志都写入重做日志文件,在每次将重做日志缓冲写入重做日志文件后, InnodB存储引擎都需要调用一次 fsync操作。(可以设置异步刷盘，等主线程刷盘，但是会造成事务丢失，不建议这样子用！)</p>
+<p><strong>redo log用来保证事务的持久性, undo log用来帮助事务回滚及MVCC的功能。</strong></p>
+<h3 id="log-block"><a href="#log-block" class="headerlink" title="log block"></a>log block</h3><p>在 InnoDB存储引擎中,redo log都是以512字节进行存储的。这意味着redo log buffer、redo log file都是以块( block)的方式进行保存的,称之为重做日志块(redolog block),每块的大小为512字节。</p>
+<p>若一个页中产生的重做日志数量大于512字节,那么需要分割为多个重做日志块进<br>行存储。</p>
+<p><strong>由于重做日志块的大小和磁盘扇区大小一样,都是512字节,因此重做日志的写入可以保证原子性,不需要 doublewrite技术。</strong></p>
+<p>log buffer根据一定的规则将内存中的 log block刷新到磁盘：</p>
+<ol>
+<li>事务提交时</li>
+<li>当 log buffer中有一半的内存空间已经被使用时</li>
+<li>log checkpoint时</li>
+</ol>
+<p>对于 log block的写人追加( append)在 redo log file的最后部分,当一个 redo logfle被写满时,会接着写入下一个 redo log file,其使用方式为round-robin。</p>
+<h3 id="LSN"><a href="#LSN" class="headerlink" title="LSN"></a>LSN</h3><p>LSN是 Log Sequence Number的缩写,其代表的是日志序列号。在 InnoDB存储引擎中,LSN占用8字节,并且单调递增。LSN表示的含义有:</p>
+<ol>
+<li>重做日志写人的总量</li>
+<li>checkpoint的位置</li>
+<li>页的版本</li>
+</ol>
+<p>LSN不仅记录在重做日志中,还存在于每个页中。在每个页的头部,有一个值记录了该页的LSN。在页中,LSN表示该页最后刷新时LSN的大小。<strong>因为重做日志记录的是每个页的日志,因此页中的LSN用来判断页是否需要进行恢复操作。</strong></p>
+<h3 id="恢复"><a href="#恢复" class="headerlink" title="恢复"></a>恢复</h3><p>由于 checkpoint表示已经刷新到磁盘页上的LSN,因此在恢复过程中仅需恢复checkpoint开始的日志部分。对于图中的例子,当数据库在 checkpoint的LSN为10000时发生宕机,恢复操作仅恢复LSN10000~13000范围内的日志。</p>
+<p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_05_04.png" alt=""></p>
+<h2 id="undo"><a href="#undo" class="headerlink" title="undo"></a>undo</h2><p>undo存放在数据库内部的一个特殊段( segment)中,这个段称为undo段( undo segment)。undo段位于共享表空间内。</p>
+<p>undo log会产生 redo log,也就是 undo log的产生会伴随着 redo log的产生,这是因为 undo log也需要持久性的保护。</p>
+<p>在 InnoDB存储引擎中, undo log分为:</p>
+<ol>
+<li><p>Insert undo log</p>
+<blockquote>
+<p>insert undo log是指在 insert操作中产生的 undo log。因为 Insert操作的记录,只对事务本身可见,对其他事务不可见(这是事务隔离性的要求),故该 undo log可以在事务提交后直接删除。<strong>不需要进行 purge操作。</strong></p>
+</blockquote>
+</li>
+<li><p>update undo log</p>
+<blockquote>
+<p>update undo log记录的是对 delete和 update操作产生的 undo log。该 undo log可能需要提供MvcC机制,因此不能在事务提交时就进行删除。提交时放 undo log链表等待purge线程进行最后的删除。</p>
+</blockquote>
+</li>
+</ol>
+<p>delete操作并不直接删除记录,而只是将记录标记为已删除,也就是将记录的 delete flag设置为1。而记录最终的删除是在 purge操作中完成的。</p>
+<p>update主键的操作其实分两步完成。首先将原主键记录标记为已删除的undo log，之后插入一条<br>新的记录的undo log。</p>
+<h2 id="purge"><a href="#purge" class="headerlink" title="purge"></a>purge</h2><p>对数据的真正删除这行记录的操作其实被“延时”了,最终在 purge操作中完成。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql/" rel="tag"># mysql</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/08/18/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql04_InnoDB%E7%B4%A2%E5%BC%95/" rel="prev" title="mysql04_InnoDB索引">
+      <i class="fa fa-chevron-left"></i> mysql04_InnoDB索引
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/20/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql06_sql%E6%89%A7%E8%A1%8C%E5%8E%9F%E7%90%86/" rel="next" title="mysql06_sql执行原理">
+      mysql06_sql执行原理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#锁的类型"><span class="nav-number">1.</span> <span class="nav-text">锁的类型</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#死锁和死锁检查"><span class="nav-number">2.</span> <span class="nav-text">死锁和死锁检查</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#事务"><span class="nav-number">3.</span> <span class="nav-text">事务</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#ACID特性"><span class="nav-number">3.1.</span> <span class="nav-text">ACID特性</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#SQL标准中的事务隔离级别"><span class="nav-number">3.2.</span> <span class="nav-text">SQL标准中的事务隔离级别</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#READ-UNCOMMITTED（读未提交）"><span class="nav-number">3.2.1.</span> <span class="nav-text">READ UNCOMMITTED（读未提交）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#READ-COMMITTED（读提交）"><span class="nav-number">3.2.2.</span> <span class="nav-text">READ COMMITTED（读提交）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#REPEATABLE-READ（可重复读）"><span class="nav-number">3.2.3.</span> <span class="nav-text">REPEATABLE READ（可重复读）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SERIALIZABLE（序列化）"><span class="nav-number">3.2.4.</span> <span class="nav-text">SERIALIZABLE（序列化）</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#行锁的三种算法"><span class="nav-number">4.</span> <span class="nav-text">行锁的三种算法</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#事务的实现"><span class="nav-number">5.</span> <span class="nav-text">事务的实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#多版本并发控制-MVCC"><span class="nav-number">5.1.</span> <span class="nav-text">多版本并发控制(MVCC)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#快照读与当前读"><span class="nav-number">5.1.1.</span> <span class="nav-text">快照读与当前读</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#redo"><span class="nav-number">5.2.</span> <span class="nav-text">redo</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#log-block"><span class="nav-number">5.2.1.</span> <span class="nav-text">log block</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LSN"><span class="nav-number">5.2.2.</span> <span class="nav-text">LSN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#恢复"><span class="nav-number">5.2.3.</span> <span class="nav-text">恢复</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#undo"><span class="nav-number">5.3.</span> <span class="nav-text">undo</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#purge"><span class="nav-number">5.4.</span> <span class="nav-text">purge</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="broker简介broker是Apache Kafka最重要的组件,本质上它是一个功能载体(或服务载体),承载了绝大多数的Kaka服务。事实上,大多数的消息队列框架都有 broker或与之类似的角色。一个broker通常是以服务器的形式出现的,对用户而言, broker的主要功能就是持久化消息以及将消息队列中的消息从发送端传输到消费端。">
+<meta name="keywords" content="mq,kafka">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kafka04_broker">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;04&#x2F;01&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;mq&#x2F;kafka&#x2F;kafka04_broker&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="broker简介broker是Apache Kafka最重要的组件,本质上它是一个功能载体(或服务载体),承载了绝大多数的Kaka服务。事实上,大多数的消息队列框架都有 broker或与之类似的角色。一个broker通常是以服务器的形式出现的,对用户而言, broker的主要功能就是持久化消息以及将消息队列中的消息从发送端传输到消费端。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_02.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_03.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_04.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_05.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_06.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_07.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_08.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_09.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_10.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_11.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_12.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_13.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_14.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_15.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_16.png">
+<meta property="og:updated_time" content="2020-06-15T12:45:25.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_broker_01.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/04/01/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka04_broker/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>kafka04_broker | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/04/01/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka04_broker/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kafka04_broker
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-01 20:00:00" itemprop="dateCreated datePublished" datetime="2019-04-01T20:00:00+08:00">2019-04-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-15 20:45:25" itemprop="dateModified" datetime="2020-06-15T20:45:25+08:00">2020-06-15</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/" itemprop="url" rel="index"><span itemprop="name">mq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/kafka/" itemprop="url" rel="index"><span itemprop="name">kafka</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="broker简介"><a href="#broker简介" class="headerlink" title="broker简介"></a>broker简介</h1><p>broker是Apache Kafka最重要的组件,本质上它是一个功能载体(或服务载体),承载了绝大多数的Kaka服务。事实上,大多数的消息队列框架都有 broker或与之类似的角色。<strong>一个broker通常是以服务器的形式</strong>出现的,对用户而言, broker的主要功能就是持久化消息以及将消息队列中的消息从发送端传输到消费端。</p>
+<a id="more"></a>
+
+<h1 id="消息设计"><a href="#消息设计" class="headerlink" title="消息设计"></a>消息设计</h1><p>使用JAVA类来定义Kafka似乎很简单，但是这种实现的弊端是什么呢？</p>
+<ol>
+<li>在jvm中，保存对象的开销非常大</li>
+<li>JMM要求对象必须按照8字节对齐，会产生不必要的padding。</li>
+<li>堆上的数据越来越多，GC的性能下降很快</li>
+</ol>
+<p>目前kafka消息格式有三个版本，V0、V1、V2。</p>
+<h2 id="V0版本-kafka-0-10-0-0之前"><a href="#V0版本-kafka-0-10-0-0之前" class="headerlink" title="V0版本(kafka 0.10.0.0之前)"></a>V0版本(kafka 0.10.0.0之前)</h2><p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_01.png" alt=""></p>
+<ul>
+<li>CRC校验码:4字节的CRC校验码,用于确保消息在传输过程中不会被恶意篡改。</li>
+<li>magic:单字节的版本号。V0版本 magic=0,V1版本 magic=1,V2版本 magIc=2。</li>
+<li>attribute:单字节属性字段,目前只使用低3位表示消息的压缩类型。</li>
+<li>key长度字段:4字节的消息key长度信息。若未指定key,则给该字段赋值为-1。</li>
+<li>key值:消息key,长度由上面的“key长度字段”值指定。如果“key长度字段”值是1,则无key,消息没有该字段。</li>
+<li>value长度字段:4字节的消息长度。若未指定 value,则给该字段赋值-1。</li>
+<li>value值:消息 value,长度由上面的“ value长度字段”值指定。如果“ value长度字段值是-1,则无 value,消息没有该字段。</li>
+</ul>
+<h1 id="V1-kafka-0-10-0-0"><a href="#V1-kafka-0-10-0-0" class="headerlink" title="V1(kafka 0.10.0.0)"></a>V1(kafka 0.10.0.0)</h1><p>由于v0版本存在两个弊端，无法满足使用场景，kafka在0.10.0.0版本中改进了消息格式。</p>
+<p>弊端：</p>
+<ol>
+<li><p>没有消息的时间信息。</p>
+</li>
+<li><p>很多流式处理框架都需要消息保存时间信息以便对消息执行时间窗口等聚合操作。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_02.png" alt=""></p>
+<p>V1与V0区别:</p>
+<ol>
+<li>加入8字节的时间戳</li>
+<li>V1版本attribute的第4位被用于指定时间戳类型，目前支持两种CREATE_TIME(消息创建时，由producer指定) 和 LOG_APPEND_TIME(消息发到broker,由broker指定)</li>
+</ol>
+</li>
+</ol>
+<h1 id="V2-kafka-0-11-0-0"><a href="#V2-kafka-0-11-0-0" class="headerlink" title="V2(kafka 0.11.0.0)"></a>V2(kafka 0.11.0.0)</h1><p>V0,V1存在的缺陷</p>
+<ol>
+<li>空间利用率不高:不管key，value长度，总是用固定4字节保存。</li>
+<li>只保存最新消息位移: 如果获取第一条消息的位移，只能把日志都解压缩装入内存方向遍历</li>
+<li>冗余消息及CRC校验:为每条消息执行CRC比较浪费CPU时间片，尤其是时间戳是LOG_APPEND_TIME类型，每条消息到broker的时候都要重新覆盖时间戳并重新计算crc。</li>
+<li>未保存消息长度</li>
+</ol>
+<p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_03.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_04.png" alt=""></p>
+<p>v2主要优化点如下</p>
+<ol>
+<li>引入batch概念，每个batch里面可以有很多条消息，crc校验的问题得到优化，crc从消息层移除 被放到batch层</li>
+<li>增加batch层attribute，移除消息层attribute字段，节约空间</li>
+<li>可变长度的key value</li>
+<li>PID、 producer epoch和序列号等信息都是0.11.0.0版本为了<strong>实现幂等性 producer和支持事务而引入</strong>的。PID表示一个幂等性 producer的ID值,producer epoch表示某个PID携带的当前版本号, broker使用PID和 epoch来确定当前合法的 producer实例,并以此阻止过期 producer向 broker生产消息。序列号的引入主要是为了实现消息生产的幂等性。 Kafka依靠它来辨别消息是否已成功提交,从而防止出现重复生产消息。</li>
+</ol>
+<h1 id="集群管理"><a href="#集群管理" class="headerlink" title="集群管理"></a>集群管理</h1><p>kafka是依赖zk实现集群管理的。每当一个broker启动时，它会将自己注册到zk下的一个节点，路径为/brokers/ids/#{broker.id}</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_05.png" alt=""></p>
+<p>ZooKeeper临时节点的生命周期和客户端会话绑定。如果客户端会话失效,该临时节点就会自动被清除掉。Kaka正是利用 ZooKeeper临时节点来管理<br>broker生命周期的。broker启动时在ZooKeeper中创建对应的临时节点,同时还会创建一个监听器(listener)监听该临时节点的状态;一旦broker启动后,监听器会自动同步整个集群信息到该 broker上;而一旦该 broker崩溃,它与 ZooKeeper的会话就会失效,导致临时节点被删除,监听器被触发,然后处理 broker崩溃的后续事宜。这就是 Kafka管理集群及其成员的主要流程。</p>
+<h2 id="zk路径"><a href="#zk路径" class="headerlink" title="zk路径"></a>zk路径</h2><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_06.png" alt=""></p>
+<ul>
+<li>/brokers:里面保存了 Kafka集群的所有信息,包括每台 broker的注册信息,集群上所有topic的信息等。</li>
+<li>/controller:保存了 Kafka controller组件(controller负责集群的领导者选举)注册信息,同时也负责 controller的动态选举。</li>
+<li>/admin:保存管理脚本的输出结果,比如删除 topic,对分区进行重分配等操作。</li>
+<li>/ isr_change_notification:保存ISR列表发生变化的分区列表。controller会注册一个监听器实时监控该节点下子节点的变更。</li>
+<li>/config:保存了Kaka集群下各种资源的定制化配置信息,比如每个topc可能有自己<br>专属的一组配置,那么就保存在/ config/topics/#{topic}下。</li>
+<li>/cluster:保存了Kaka集群的简要信息,包括集群的ID信息和集群版本号。</li>
+<li>controller epoch:保存了controller组件的版本号。Kaka使用该版本号来隔离无效的<br>controller请求。</li>
+</ul>
+<h1 id="副本与ISR设计-复制"><a href="#副本与ISR设计-复制" class="headerlink" title="副本与ISR设计(复制)"></a>副本与ISR设计(复制)</h1><p>一个Kaka分区本质上就是一个备份日志,即利用多份相同的备份共同提供冗余机制来保持系统高可用性。<br>这些备份在 Kafka中被称为副本( replica)。<br>Kafka把分区的所有副本均匀地分配到所有 broker上,并从这些副本中挑选一个作为 leader副本对外提供服务,而其他副本被称为 follower副本,只能被动地向 leader副本请求数据,从而保持与 leader副本的同步。</p>
+<h2 id="ISR"><a href="#ISR" class="headerlink" title="ISR"></a>ISR</h2><p>ISR,就是 Kafka集群动态维护的一组同步副本集合(in- sync replicas)。  </p>
+<ol>
+<li>每个 topic分区都有自己的ISR列表,ISR中的所有副本都与 leader保持同步状态。</li>
+<li>leader副本总是包含在ISR中的,只有ISR中的副本才有资格被选举为 leader.。</li>
+<li><strong>producer写入的一条条Kafka消息只有被ISR中的所有副本都接收到</strong>,才被视为“已提交”状态。(具体表现参考 kafka producer中的acks参数)</li>
+</ol>
+<h2 id="副本同步"><a href="#副本同步" class="headerlink" title="副本同步"></a>副本同步</h2><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_07.png" alt=""></p>
+<ol>
+<li>起始位移( base offset):表示该副本当前所含第一条消息的offset</li>
+<li>高水印值( high watermark,HW):副本高水印值。它保存了该副本最新一条已提交<br>消息的位移。 leader分区的HW值决定了副本中已提交消息的范围,也确定了<br>consumer能够获取的消息上限,超过HW值的所有消息都被视为“未提交成功的”,<br>因而 consumer是看不到的。</li>
+<li>日志末端位移( log end offset,LEO):副本日志中下一条待写入消息的ofet所有<br>副本都需要维护自己的LEO信息。每当 leader副本接收到 producer端推送的消息,它<br>会更新自己的LEO(通常是加1)。同样, follower副本向 leader副本请求到数据后也<br>会增加自己的LEO。ISR中的所有副本都更新了对应的LEO之后, leader副本才会向右移动HW值表明消息写入成功。</li>
+</ol>
+<h2 id="ISR设计"><a href="#ISR设计" class="headerlink" title="ISR设计"></a>ISR设计</h2><h3 id="0-9-0-0版本之前"><a href="#0-9-0-0版本之前" class="headerlink" title="0.9.0.0版本之前"></a>0.9.0.0版本之前</h3><p>090.0版本之前,Kaka提供了一个参数 replica.lag.max. messages,用于控制 follower副本落后 leader副本的消息数。一旦超过这个消息数,则视为该 follower为“不同步”状态,从而需要被Kaka“踢出”ISR。</p>
+<p>存在问题：</p>
+<ol>
+<li>replica.lag.max. messages需要靠用户猜测，如果这个值太小了，会导致follower不断地被踢出ISR，然后又重新加入ISR这种情况发生，非常消耗性能。(例如设置为3，然后同一时间producer发了4条消息，follower会被认为和leader不同步。)</li>
+<li>replica.lag.max. messages参数影响所有topic，是一个全局参数</li>
+</ol>
+<h3 id="0-9-0-0版本之后"><a href="#0-9-0-0版本之后" class="headerlink" title="0.9.0.0版本之后"></a>0.9.0.0版本之后</h3><p>自0.90.0版本之后,Kaka去掉了之前的 replica.lag. max. messages参数,改用统一的参数<br><strong>replica.lag.time.maxms</strong>(默认值是10秒)同时检测由于慢以及进程卡壳而导致的滞后( lagging)-即 follower副本落后 leader副本的时间间隔。</p>
+<p>对于“请求速度追不上”的情况,检测机制也发生了变化—如果一个 follower副本落后 leader的时间持续性地超过了这个参数值,那么该 follower副本就是“不同步”的。这样即使出现刚刚提到的producer瞬时峰值流量,只要 follower不是持续性落后,它就不会反复地在ISR中移进、移出。</p>
+<h2 id="水印和-leader-epoch-复制原理"><a href="#水印和-leader-epoch-复制原理" class="headerlink" title="水印和 leader epoch(复制原理)"></a>水印和 leader epoch(复制原理)</h2><p>每个Kaka副本对象都持有两个重要的属性:日志末端位移( log end offset,下称LEO)<br>和高水印(HW)。</p>
+<ul>
+<li><strong>LEO</strong>:日志末端位移,记录了该副本对象底层日志文件中下一条消息的位移值。</li>
+<li><strong>HW</strong>:我们已经很熟悉的高水印值。任何一个副本对象的HW值一定不大于其LEO值,<br>而小于或等于HW值的所有消息被认为是“已提交的”或“已备份的”( replicated)</li>
+</ul>
+<p>Kafka设计了两套 follower副本LEO属性:</p>
+<ul>
+<li>一套LEO值保存在 follower副本所在 broker的缓存上</li>
+<li>另一套LEO值保存在leader副本所在broker的缓存上 (leader副本所在机<br>器的缓存上保存了该分区下所有 follower副本的LEO属性值)</li>
+</ul>
+<p><strong>为什么要保存两套值呢?</strong><br>因为Kaka需要利用前者帮助follower副本自身更新HW值,而同时还需要使用后者来确定 leader副本的HW值,即分区HW。</p>
+<p><strong>LEO更新机制</strong></p>
+<ol>
+<li>follower副本端的follower副本的LEO，在 follower发送 FETCH请求后, leader将数据返回给 follower,此时 follower开始向底层log写数据,从而自动更新其LEO值。</li>
+<li>leader副本端的 follower副本LEO，一旦leader接收到 follower发送的 FETCH请求,它首先会从自己的log中读取相应的数据,但是在给 follower返回数据之前它先去更新 follower的LEO(即上面所说的第二套LEO值)。</li>
+<li>leader副本更新LEO， leader写log时就会自动更新它自己的LEO值。</li>
+</ol>
+<h3 id="HW更新机制"><a href="#HW更新机制" class="headerlink" title="HW更新机制"></a>HW更新机制</h3><p><strong>follower副本HW更新机制</strong></p>
+<p>一旦 follower向log写完数据,它就会尝试更新HW值。具体算法就是比较当前LEO值与 FETCH响应中 leader的HW值,取两者的小者作为新的HW值。</p>
+<p><strong>leader副本HW更新机制</strong></p>
+<p>比起 follower副本的HW属性,我们更关心 leader副本HW值的更新,因为它直接影响了分区数据对于 consumer的可见性。在以下4种情况下, leader会尝试更新分区HW值<br>切记是尝试,有可能因为不满足条件而不做任何更新。</p>
+<ul>
+<li>副本成为leader副本时</li>
+<li>broker出现崩溃导致副本被踢出ISR</li>
+<li>producer 向leader副本写入消息时</li>
+<li>leader处理follower FETCH请求时</li>
+</ul>
+<p><strong>leader是如何更新它的HW值的呢?</strong></p>
+<p>前面说过, leader broker上保存了一套 follower副本的LEO以及它自己的LEO。当尝试确定分区HW时,它会选出所有满足条件的副本,比较它们的LEO(当然也包括 leader自己的LEO),并选择最小的LEO值作为HW值。<br>这里的满足条件主要是指副本要满足以下两个条件之一。</p>
+<ul>
+<li>处于ISR中</li>
+<li>副本LEO落后于 leader leo的时长不大于 replica lag time.max.ms参数值(默认值是<br>10秒)</li>
+</ul>
+<p><strong>分区HW实际上就是ISR中所有副本的LEO的最小值</strong></p>
+<h3 id="基于水印备份机制的缺陷"><a href="#基于水印备份机制的缺陷" class="headerlink" title="基于水印备份机制的缺陷"></a>基于水印备份机制的缺陷</h3><p>Kafka使用HW值来决定副本备份的进度而HW值的更新通常需要另一轮 FETCH请求才能完成,故这种设计在本质上是存在缺陷的。可能引发的问题如下</p>
+<p><strong>备份数据丢失</strong></p>
+<p>使用HW值来确定备份进度时其值的更新是在下一轮RPC中完成的。设想下这样的场景:某 follower发送了第二轮的 FETCH请求给 leader,在接收到响应之后,它会首先写入本地日志假设没有数据可写,故 follower leo不会发生变化。之后 follower副本准备更新其HW值。此时故障发生了, leader副本发生崩溃,那么这个时刻就可能造成数据丢失。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_08.png" alt=""></p>
+<p><strong>备份数据不一致</strong></p>
+<p>除数据丢失风险之外,这种设计还有一个潜在的问题,即造成 leader端log和 follower端<br>log的数据不一致,即数据离散的问题。举一个例子,假设 leader端保存的消息序列是<br>rl,r2,r3,4,r5…,而 follower端保存的消息序列可能是rl,r3,r4,r5,r6…。这也是非法的场景,因为顾名思义, follower必须追随 leader,完整地备份 leader端的数据。</p>
+<p>这种情况的初始状态与数据丢失场景有些许不同之处:A依然是 leader,A的log写入了2<br>条消息,但B的log只写入了1条消息。分区HW更新到2,但B的HW还是1,同时生产者端的min.insync.replices=1.</p>
+<p>这次我们让A和B所在机器同时挂掉,然后假设B先重启回来,因此成为 leader,分区HW=1。假设此时 producer发送了第3条消息给B,于是B的log中 offset=1的消息变成了绿色框表示的消息,同时分区HW更新到2(A还没有回来,就B一个副本,故可以直接更新HW而不用理会A)之后A重启回来,需要执行日志截断,但发现此时分区HW=2,而A之前的HW值也是2,故不做任何调整。此后A和B将以这种状态继续正常工作。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_09.png" alt=""></p>
+<h3 id="leader-epoch"><a href="#leader-epoch" class="headerlink" title="leader epoch"></a>leader epoch</h3><p>所谓领导者 epoch( leader epoch),实际上是一对值( epoch,ofie) epoch表示 leader的版<br>本号,从0开始,当 leader变更过1次时, epoch就会加1,而oet则对应于该 epoch版本的<br>leader写入第一条消息的位移。</p>
+<p>每个 leader broker中会保存这样一个缓存,并定期写入一个检查点文件中。当 leader写底层log时,它会尝试更新整个缓存如果这个 leader首次写消息,则会在缓存中增加一个条<br>目,否则就不做更新。而每次副本重新成为 leader时会查询这部分缓存,获取对应 leader版本的位移,这就不会发生数据不一致和丢失的情况</p>
+<p>参考链接 <a href="https://cwiki.apache.org/confluence/display/KAFKA/KIP-101+-+Alter+Replication+Protocol+to+use+Leader+Epoch+rather+than+High+Watermark+for+Truncation" target="_blank" rel="noopener">官网有关这一功能的描述</a></p>
+<p>虽然能解决部分数据丢失的问题，但是还是会有数据丢失的情况出现，比如链接中 m2的消息就被丢弃了。</p>
+<h1 id="日志存储设计"><a href="#日志存储设计" class="headerlink" title="日志存储设计"></a>日志存储设计</h1><p>kafka的分区即kafka的日志，对于每个日志而言，kafka又进一步细分成日志段文件以及日志索引文件。</p>
+<p>日志段文件,即后缀名是Log的文件保存着真实的Kafka记录。每个og文件都包含了一段位移范围的 Kafka记录。Kaka使用该文件第一条记录对应的offset来命名此log文件。因此,每个新创建的 topic分区一定有offset是0的log文件虽然在Kaka内部 offset是用64位来保存的,但目前对于日志段文件而言, Kafka只使用20位数字来标识offset。不过对于实际的线上环境而言,这通常是足够的。</p>
+<p>kafka每个日志段文件上限大小，由broker端参数log.message.bytes控制，默认是1GB.</p>
+<p>当日志段被填满后，kafka会自动创建一组新的日志段和索引文件，这个过程被称为日志切分.</p>
+<p>kafka正在写入的日志段被称为当前激活日志段或当前日志段,<strong>当前日志段不受任何kafka后台任务影响</strong>，比如定期清理任务，日志压缩任务。</p>
+<h2 id="索引文件"><a href="#索引文件" class="headerlink" title="索引文件"></a>索引文件</h2><p>Kaka分区日志还包含两个特殊的文件.index和.timeindex,它们都是索引文件,分别被称为位移索引文件和时间戳索引文件。前者可以帮助 broker更快地定位记录所在<br>的物理文件位置,而后者则是根据给定的时间戳査找对应的位移信息。</p>
+<p>broker端参数 log.index.interval.bytes设置了这个间隔到底是多大,默认值是4KB,即 Kafka分区至少写入了4KB数据后才会在索引文件中增加一个索引项。</p>
+<p>不论是位移索引文件还是时间戳索引文件,它们中的索引项都按照某种规律进行升序排列。对于位移索引文件而言,它是按照位移顺序保存的;而时间戳索引文件则严格按照时间戳顺序保存。<strong>由于有了这种升序规律,Kaka可以利用二分查找( binary search)算法来搜寻目标索引项</strong>,从而降<strong>低整体时间复杂度到O(lgN)</strong>。若没有索引文件,Kaka搜寻记录的方式只能是从每个日志段文件的头部顺序扫描,因此,这种方案的时间复杂度是O(n)。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_10.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_11.png" alt=""></p>
+<h2 id="日志存留"><a href="#日志存留" class="headerlink" title="日志存留"></a>日志存留</h2><p>Kaka是会定期清除日志的,而且清除的单位是日志段文件,即删除符合清除策略的日志<br>段文件和对应的两个索引文件。当前留存策略有如下两种。</p>
+<ul>
+<li>基于时间的留存策略: Kafka默认会清除7天前的日志段数据(包括索引文件)。Kaka提供了3个broker端参数,其中log.retention.{ hours minutes ms}用于配置清除日志的时间间隔,其中的ms优先级最高, minutes次之, hours优先级最低。</li>
+<li>基于大小的留存策略:Kaka默认只会为每个log保存log.retention.bytes参数值大小的<br>字节数。默认值是-1,表示Kaka不会对log进行大小方面的限制。</li>
+</ul>
+<h2 id="日志压缩"><a href="#日志压缩" class="headerlink" title="日志压缩"></a>日志压缩</h2><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_12.png" alt=""></p>
+<p>在内部,Kaka会构造一个哈希表来保存key与最新位移的映射关系。当执行 compaction<br>时, Cleaner不断拷贝日志段中的数据,只不过它会无视那些key存在于哈希表中但具有较大位移值的消息。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_13.png" alt=""></p>
+<p>典型使用场景：只关心最后一条消息的场景，例如kafka分区的offset的topic</p>
+<h1 id="Controller设计"><a href="#Controller设计" class="headerlink" title="Controller设计"></a>Controller设计</h1><p>在一个Kaka集群中,某个 broker会被选举出来承担特殊的角色,即controller。引入controller就是用来管理和协调Kafka集群的。具体来说,就是管理集群中所有分区的状态并执行相应的管理操作。</p>
+<p>每个Kafka集群任意时刻都只能有一个controller,当集群启动时,所有 broker都会参与controller的竞选,但最终只能由一个broker胜出。一旦 controller在某个时刻崩溃,集群中剩余的broker会立刻得到通知,然后开启新一轮的 controller选举。新选举出来的 controller将承担起之前controller的所有工作。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_14.png" alt=""></p>
+<h2 id="controller管理状态"><a href="#controller管理状态" class="headerlink" title="controller管理状态"></a>controller管理状态</h2><p>controller维护的状态分为两类:</p>
+<ul>
+<li>每台 broker上的分区副本(副本状态)</li>
+<li>每个分区的 leader副本信息(分区状态)</li>
+</ul>
+<h2 id="controller-故障转移原理"><a href="#controller-故障转移原理" class="headerlink" title="controller 故障转移原理"></a>controller 故障转移原理</h2><p>一个Kafka集群中发生 controller leader选举的场景共有如下4种:</p>
+<ul>
+<li>关闭 controller所在 broker</li>
+<li>当前 controller所在 broker宕机或崩溃。</li>
+<li>手动删除 ZooKeeper的/controller节点。</li>
+<li>手动向 ZooKeeper的/controller节点写入新的 broker id</li>
+</ul>
+<p>这4种操作变更实际上都是/controller节点的内容<br>controller只需要做一件事情:创建一个监听该目录的监听器。/controller本质上是一个临时节点,节点保存了当前controller所在的 broker id。</p>
+<p>集群首次启动时所有 broker都会抢着创建该节点,但ZooKeeper保证了最终只能有一个 broker胜出—胜出的那个 broker即成为 controller。</p>
+<p>一旦成为 controller,它会增加 controller的版本号,即更新 /controller epoch节点的值,然<br>后履行上面所有的这些职责。对于那些没有成为 controller的 broker们而言,它们不会甘心失败,而是继续监听/controller节点的存活情况并随时准备竞选新的 controller</p>
+<h1 id="broker请求处理-Reactor模式"><a href="#broker请求处理-Reactor模式" class="headerlink" title="broker请求处理(Reactor模式)"></a>broker请求处理(Reactor模式)</h1><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_15.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_broker_16.png" alt=""></p>
+<p><a href="https://www.jianshu.com/p/188ef8462100" target="_blank" rel="noopener">https://www.jianshu.com/p/188ef8462100</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mq/" rel="tag"># mq</a>
+              <a href="/tags/kafka/" rel="tag"># kafka</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/03/30/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka03_consumer/" rel="prev" title="kafka03_consumer">
+      <i class="fa fa-chevron-left"></i> kafka03_consumer
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/04/02/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka05_%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86%7C%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" rel="next" title="kafka05_集群管理|常见问题">
+      kafka05_集群管理|常见问题 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#broker简介"><span class="nav-number">1.</span> <span class="nav-text">broker简介</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#消息设计"><span class="nav-number">2.</span> <span class="nav-text">消息设计</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#V0版本-kafka-0-10-0-0之前"><span class="nav-number">2.1.</span> <span class="nav-text">V0版本(kafka 0.10.0.0之前)</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#V1-kafka-0-10-0-0"><span class="nav-number">3.</span> <span class="nav-text">V1(kafka 0.10.0.0)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#V2-kafka-0-11-0-0"><span class="nav-number">4.</span> <span class="nav-text">V2(kafka 0.11.0.0)</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#集群管理"><span class="nav-number">5.</span> <span class="nav-text">集群管理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#zk路径"><span class="nav-number">5.1.</span> <span class="nav-text">zk路径</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#副本与ISR设计-复制"><span class="nav-number">6.</span> <span class="nav-text">副本与ISR设计(复制)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#ISR"><span class="nav-number">6.1.</span> <span class="nav-text">ISR</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#副本同步"><span class="nav-number">6.2.</span> <span class="nav-text">副本同步</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ISR设计"><span class="nav-number">6.3.</span> <span class="nav-text">ISR设计</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#0-9-0-0版本之前"><span class="nav-number">6.3.1.</span> <span class="nav-text">0.9.0.0版本之前</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#0-9-0-0版本之后"><span class="nav-number">6.3.2.</span> <span class="nav-text">0.9.0.0版本之后</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#水印和-leader-epoch-复制原理"><span class="nav-number">6.4.</span> <span class="nav-text">水印和 leader epoch(复制原理)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#HW更新机制"><span class="nav-number">6.4.1.</span> <span class="nav-text">HW更新机制</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#基于水印备份机制的缺陷"><span class="nav-number">6.4.2.</span> <span class="nav-text">基于水印备份机制的缺陷</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#leader-epoch"><span class="nav-number">6.4.3.</span> <span class="nav-text">leader epoch</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#日志存储设计"><span class="nav-number">7.</span> <span class="nav-text">日志存储设计</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#索引文件"><span class="nav-number">7.1.</span> <span class="nav-text">索引文件</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#日志存留"><span class="nav-number">7.2.</span> <span class="nav-text">日志存留</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#日志压缩"><span class="nav-number">7.3.</span> <span class="nav-text">日志压缩</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Controller设计"><span class="nav-number">8.</span> <span class="nav-text">Controller设计</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#controller管理状态"><span class="nav-number">8.1.</span> <span class="nav-text">controller管理状态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#controller-故障转移原理"><span class="nav-number">8.2.</span> <span class="nav-text">controller 故障转移原理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#broker请求处理-Reactor模式"><span class="nav-number">9.</span> <span class="nav-text">broker请求处理(Reactor模式)</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

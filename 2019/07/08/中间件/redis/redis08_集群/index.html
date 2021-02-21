@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Redis集群概述Redis Cluster是Redis的分布式解决方案，在3.0版本后加入。在3.0之前为了解决容量高可用用方面的需求基本上只能通过 客户端分片+redis sentinel或者代理（twemproxy、codis）方案解决。">
+<meta name="keywords" content="redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis08_集群">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;07&#x2F;08&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;redis&#x2F;redis08_%E9%9B%86%E7%BE%A4&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="Redis集群概述Redis Cluster是Redis的分布式解决方案，在3.0版本后加入。在3.0之前为了解决容量高可用用方面的需求基本上只能通过 客户端分片+redis sentinel或者代理（twemproxy、codis）方案解决。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_tb_10-1.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-3.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-6.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-7.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-13.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-13.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-33.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-34.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-36.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-37.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-39.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_10-40.png">
+<meta property="og:updated_time" content="2020-06-03T03:46:14.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_tb_10-1.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/07/08/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis08_%E9%9B%86%E7%BE%A4/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>Redis08_集群 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/08/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis08_%E9%9B%86%E7%BE%A4/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Redis08_集群
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-07-08 20:30:00" itemprop="dateCreated datePublished" datetime="2019-07-08T20:30:00+08:00">2019-07-08</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-03 11:46:14" itemprop="dateModified" datetime="2020-06-03T11:46:14+08:00">2020-06-03</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Redis集群"><a href="#Redis集群" class="headerlink" title="Redis集群"></a>Redis集群</h1><h1 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h1><p>Redis Cluster是Redis的分布式解决方案，在3.0版本后加入。在3.0之前为了解决容量高可用用方面的需求基本上只能通过 客户端分片+redis sentinel或者代理（twemproxy、codis）方案解决。</p>
+<a id="more"></a>
+
+<h1 id="数据分布理论"><a href="#数据分布理论" class="headerlink" title="数据分布理论"></a>数据分布理论</h1><p>分布式数据库首先要解决把<strong>整个数据集按照分区规则映射到多个节点的问题。</strong><br>常见的分区规则有<strong>哈希分区</strong>和<strong>顺序分区</strong>两种。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_tb_10-1.png" alt=""></p>
+<p>常见的哈希分区规则有几种:</p>
+<ol>
+<li>节点取余分区：hash(key)%N计算出哈希值,<strong>如扩容或收缩节点，数据节点映射关系需要重新计算，会导致数据的重新迁移</strong></li>
+<li>一致性哈希分区: 一致性哈希分区（Distributed Hash Table）实现思路是为系统中每个节 点分配一个token，范围一般在0~$2^{32}$ ，这些token构成一个哈希环。数据读写 执行节点查找操作时，先根据key计算hash值，然后顺时针找到第一个大于 等于该哈希值的token节点。</li>
+<li>虚拟槽分区 :使用分散度良好的哈希函数<strong>把所有数据映射到一个固定范围的整数集合中</strong>，整数定义为槽（slot）。这个范围 一般远远大于节点数，比如<strong>Redis Cluster槽范围是0~16383($2^{13}$)</strong>。槽是集群内数据管理和迁移的基本单位。</li>
+</ol>
+<h2 id="一致性性哈希算法"><a href="#一致性性哈希算法" class="headerlink" title="一致性性哈希算法"></a>一致性性哈希算法</h2><p>一致性哈希算法是对$2^{32}$进行取模，将整个哈希值空间组织成一个虚拟的圆环。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-3.png" alt=""></p>
+<ol>
+<li>首先对节点进行取模，算出节点在圆环上的位置。</li>
+<li>对每个key进行取模，算出key在圆环上的位置</li>
+<li>顺时针离key位置最近的节点保存key对应的数据。</li>
+</ol>
+<p><strong>加入和删除节点只影响哈希环中相邻的节点</strong>，对其他节点无影响，<strong>具有较好的容错性和可扩展性</strong>。</p>
+<p>存在的一些问题：</p>
+<ol>
+<li>加减节点会造成哈希环中部分数据无法命中，需要手动处理或者忽略这部分数据，因此一致性哈希常用于缓存场景。</li>
+<li>普通的一致性哈希分区在增减节点时需要增加一倍或减去一半节点才能保证数据和负载的均衡。</li>
+<li>当使用少量节点时，节点变化将大范围影响哈希环中数据映射。</li>
+</ol>
+<p>总的来说，当节点比较少的时候，容易出现<strong>数据倾斜</strong></p>
+<h3 id="Hash环的数据倾斜问题"><a href="#Hash环的数据倾斜问题" class="headerlink" title="Hash环的数据倾斜问题"></a>Hash环的数据倾斜问题</h3><p>为了解决数据倾斜问题，一般不会直接对节点进行取模，而是将节点映射成多个虚拟节点(在实际应用中，通常将虚拟节点数设置为32甚至更大)，然后对虚拟节点进行取模，因此即使很少的服务节点也能做到相对均匀的数据分布。</p>
+<p><a href="https://zhuanlan.zhihu.com/p/34985026" target="_blank" rel="noopener">一致性哈希算法参考</a></p>
+<h1 id="Redis-Cluster"><a href="#Redis-Cluster" class="headerlink" title="Redis Cluster"></a>Redis Cluster</h1><p>Redis Cluser采用虚拟槽分区，所有的键根据哈希函数映射到0~16383整 数槽内，计算公式：slot=CRC16（key）&amp;16383</p>
+<h2 id="集群功能限制"><a href="#集群功能限制" class="headerlink" title="集群功能限制"></a>集群功能限制</h2><ol>
+<li>key批量操作支持有限。(对于映射为不同slot值的key由于执行mget、mget等操作可 能存在于多个节点上因此不被支持。)</li>
+<li>key事务操作支持有限。</li>
+<li>key作为数据分区的最小粒度，因此不能将一个大的键值对象如 hash、list等映射到不同的节点。</li>
+<li>不支持多数据库空间。单机下的Redis可以支持16个数据库，集群模 式下只能使用一个数据库空间，即db0。</li>
+<li>复制结构只支持一层，从节点只能复制主节点，不支持嵌套树状复 制结构。</li>
+</ol>
+<h2 id="集群搭建"><a href="#集群搭建" class="headerlink" title="集群搭建"></a>集群搭建</h2><h3 id="启动节点"><a href="#启动节点" class="headerlink" title="启动节点"></a>启动节点</h3><p>每个节点需要开启配置cluster-enabled yes<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-6.png" alt=""></p>
+<h3 id="节点握手"><a href="#节点握手" class="headerlink" title="节点握手"></a>节点握手</h3><p>节点握手是指一批运行在集群模式下的节点通过Gossip协议彼此通信，达到感知对方的过程。<strong>节点握手是集群彼此通信的第一步</strong>，<strong>由客户端发起命令</strong>：cluster meet {ip} {port}</p>
+<p>cluster meet命令是一个异步命令，执行之后立刻返回。内部发起与目标节点进行握手通信。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-7.png" alt=""></p>
+<ol>
+<li>节点6379本地创建6380节点信息对象，并发送meet消息。</li>
+<li>节点6380接受到meet消息后，保存6379节点信息并回复pong消息。</li>
+<li>之后节点6379和6380彼此定期通过ping/pong消息进行正常的节点通信。</li>
+</ol>
+<p><strong>两台机器握手以后，如何让其他节点获取到新加入节点的信息呢？</strong><br>在<strong>集群内任意节点上执行cluster meet命令</strong>加入新节点，握手状态会通过消息在集群内传播，这样其他节点会自动发现新节点并发起握手流程。</p>
+<p>握手以后，原来集群中的节点（6379）会<strong>通过gossip协议</strong>，将新节点(6380)的信息传播给集群中其他节点。</p>
+<h3 id="槽指派"><a href="#槽指派" class="headerlink" title="槽指派"></a>槽指派</h3><p>Redis集群把所有的数据映射到16384个槽中。<strong>每个key会映射为一个固 定的槽，只有当节点分配了槽，才能响应和这些槽关联的键命令。</strong> 通过 cluster addslots命令为节点分配槽。</p>
+<p><strong>当数据库中的16384个槽都有节点在处理时，集群处于上线状态；如果任何一个槽没有得到处理，集群处于下线状态</strong></p>
+<p><strong>集群模式下，Reids节点角色分为主节点和从节点</strong>。首次启动的节点和被分配槽的节点都是主节点，从节点负责复制主节点槽信息和相关的数据。<strong>使用cluster replicate {nodeId}命令让一个节点成为从节点。</strong> 其中<strong>命令执行必须在对应的从节点上执行</strong>，nodeId是要复制主节点的节点ID</p>
+<h2 id="节点通信"><a href="#节点通信" class="headerlink" title="节点通信"></a>节点通信</h2><p>在分布式存储中需要提供维护节点元数据信息的机制，所谓元数据是指：节点负责哪些数据，是否出现故障等状态信息。常见的元数据维护方式分为：<strong>集中式</strong>和<strong>P2P方式</strong>。</p>
+<p>Redis集群采用P2P的<strong>Gossip</strong>协议， Gossip协议工作原理就是节点彼此不断通信交换信息，一段时间后所有的节点都会知道集群完整的信息。</p>
+<p><a href="https://zhuanlan.zhihu.com/p/41228196" target="_blank" rel="noopener">gossip协议</a><br>常用的Gossip消息可分为：</p>
+<ol>
+<li>ping消息：集群内交换最频繁的消息，集群内每个节点每秒向多个其 他节点发送ping消息，用于检测节点是否在线和交换彼此状态信息。ping消 息发送封装了自身节点和部分其他节点的状态数据。</li>
+<li>pong消息:当接收到ping、meet消息时，作为响应消息回复给发送方确 认消息正常通信。pong消息内部封装了自身状态数据。节点也可以向集群内 广播自身的pong消息来通知整个集群对自身状态进行更新。</li>
+<li>meet消息：用于通知新节点加入。</li>
+<li>fail消息:当节点判定集群内另一个节点下线时，会向集群内广播一个 fail消息，其他节点接收到fail消息之后把对应节点更新为下线状态。</li>
+</ol>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-13.png" alt=""></p>
+<h3 id="数据交换流程"><a href="#数据交换流程" class="headerlink" title="数据交换流程"></a>数据交换流程</h3><ol>
+<li>集群内每个节点维护定时任务默认每秒执行10次，每秒会随机选取5个节点找出最久没有通信的节点发送ping消息，用于保证Gossip信息交换的随机性。</li>
+<li>每100毫秒都会扫描本地节点列表，如果发现节点最近一次接受pong消息的时间大于cluster_node_timeout/2，则立刻发送ping消息，防止该节点信 息太长时间未更新。</li>
+</ol>
+<p>根据以上规则得出<strong>每个节点每秒需要发送ping消息的数量</strong>=1+10<em>num（node.pong_received&gt;cluster_nod\e_timeout/2），因此 *</em>cluster_node_timeout参数对消息发送的节点数量影响非常大**。</p>
+<p><strong>随着集群规模的增大，消耗在ping上的带宽也会随之增长，的集群每次消息通信的成本也就更高，带宽资源紧张的时候可以适当调大cluster_node_timeout参数</strong></p>
+<h2 id="集群扩容-缩容"><a href="#集群扩容-缩容" class="headerlink" title="集群扩容/缩容"></a>集群扩容/缩容</h2><p>Redis集群扩容操作可分为如下步骤</p>
+<ol>
+<li>准备新节点。</li>
+<li>加入集群。</li>
+<li>迁移槽和数据</li>
+</ol>
+<p>迁移数据流程如下<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-13.png" alt=""></p>
+<ol>
+<li>对目标节点发送cluster setslot{slot}importing{sourceNodeId}命令，让目标节点准备导入槽的数据。 </li>
+<li>对源节点发送cluster setslot{slot}migrating{targetNodeId}命令，让源节点准备迁出槽的数据。 </li>
+<li>源节点循环执行cluster getkeysinslot{slot}{count}命令，获取count个属于槽{slot}的键。</li>
+<li>在源节点上执行migrate {targetIp} {targetPort} “”0{timeout}keys{keys…}命令，把获取的键通过流水线（pipeline）机制批量迁移到目标节点，批量 迁移版本的migrate命令在Redis3.0.6以上版本提供，之前的migrate命令只能 单个键迁移。对于大量key的场景，批量键迁移将极大降低节点之间网络IO次数。</li>
+<li>重复执行步骤3和步骤4直到槽下所有的键值数据迁移到目标节点。</li>
+<li>向集群内所有主节点发送cluster setslot{slot}node{targetNodeId}命令，通知槽分配给目标节点。为了保证槽节点映射变更及时传播，需要遍历发送给所有主节点更新被迁移的槽指向新节点。</li>
+</ol>
+<h2 id="请求重定向"><a href="#请求重定向" class="headerlink" title="请求重定向"></a>请求重定向</h2><p>在集群模式下，Redis接收任何键相关命令时首先计算键对应的槽，再根据槽找出所对应的节点，如果节点是自身，则处理键命令；否则回复 MOVED重定向错误，通知客户端请求正确的节点。<strong>这个过程称为MOVED重定向</strong></p>
+<p>根据MOVED重定向机制，客户端可 以随机连接集群内任一Redis获取键所在节点，这种客户端又叫Dummy（傀 儡）客户端，它优点是代码实现简单，对客户端协议影响较小，只需要根据 重定向信息再次发送请求即可。但是它的弊端很明显，每次执行键命令前都 要到Redis上进行重定向才能找到要执行命令的节点，<strong>额外增加了IO开销</strong>，这不是Redis集群高效的使用方式。正因为如此通常集群客户端都采用另一种实现：Smart（智能）客户端。</p>
+<h3 id="Smart客户端"><a href="#Smart客户端" class="headerlink" title="Smart客户端"></a>Smart客户端</h3><p>常见redis smart客户端：Jedis，lettuce，Redisson 这三个都是官方推荐的，要看具体使用场景，lettuce、Redisson功能更高级一点，比如支持读写分离等。</p>
+<p>Smart客户端通过在<strong>内部维护slot→node的映射关系</strong>，本地就可实现键到 节点的查找，从而保证IO效率的最大化，而MOVED重定向负责协助Smart客 户端更新slot→node映射。</p>
+<h3 id="ASK重定向"><a href="#ASK重定向" class="headerlink" title="ASK重定向"></a>ASK重定向</h3><p>当进行槽迁移时，客户端请求进来会进行ASK重定向。</p>
+<p>ASK重定向对单键命令支持得很完善，但是，在开发中我 们经常使用批量操作，如mget或pipeline。当槽处于迁移状态时，批量操作会受到影响。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-33.png" alt=""></p>
+<h2 id="故障转移"><a href="#故障转移" class="headerlink" title="故障转移"></a>故障转移</h2><h3 id="故障发现"><a href="#故障发现" class="headerlink" title="故障发现"></a>故障发现</h3><h4 id="主观下线"><a href="#主观下线" class="headerlink" title="主观下线"></a>主观下线</h4><p>集群中每个节点都会定期向其他节点发送ping消息，接收节点回复pong 消息作为响应。如果在cluster-node-timeout时间内通信一直失败，则发送节点会认为接收节点存在故障，把接收节点标记为主观下线（pfail）状态。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-34.png" alt=""></p>
+<h4 id="客观下线"><a href="#客观下线" class="headerlink" title="客观下线"></a>客观下线</h4><p>当某个节点判断另一个节点主观下线后，相应的节点状态会跟随消息在集群内传播。ping/pong消息的消息体会携带集群1/10的其他节点状态数据，当接受节点发现消息体中含有主观下线的节点状态时，会在本地找到故障节点的ClusterNode结构，保存到下线报告链表中。</p>
+<p>通过Gossip消息传播，集群内节点不断收集到故障节点的下线报告。当半数以上持有槽的主节点都标记某个节点是主观下线时。触发客观下线流程。</p>
+<p><strong>为什么必须是负责槽的主节点参与故障发现决策？</strong><br>因为集群模式下只有处理槽的主节点才负责读写请求和集群槽等关键信息维护，而<strong>从节点只进行主节点数据和状态信息的复制</strong>。</p>
+<p><strong>为什么半数以上处理槽的主节点？</strong><br>必须半数以上是为了应对网络分区等原因造成的集群分割情况，被分割的小集群因为无法完成从主观下线到客观下线这一关键过程，从而防止小集群完成故障转移之后继续对外提供服务。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-36.png" alt=""></p>
+<h4 id="维护下线报告链表"><a href="#维护下线报告链表" class="headerlink" title="维护下线报告链表"></a>维护下线报告链表</h4><p>每个节点ClusterNode结构中都会存在一个下线链表结构，保存了其他主节点针对当前节点的下线报告。<br>下线报告中保存了报告故障的节点结构和最近收到下线报告的时间，当接收到fail状态时，会维护对应节点的下线上报链表。<br>每个下线报告都存在有效期，每次在尝试触发客观下线时，都会检测下线报告是否过期，对于过期的下线报告将被删除。如果在<strong>cluster-node-time*2 时间内该下线报告没有得到更新则过期并删除</strong>。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">typedef struct clusterNodeFailReport &#123;</span><br><span class="line">	struct clusterNode *node; /* 报告该节点为主观下线的节点 */ </span><br><span class="line">	mstime_t time; /* 最近收到下线报告的时间 */</span><br><span class="line">&#125; clusterNodeFailReport;</span><br><span class="line"></span><br><span class="line">//维护逻辑伪代码</span><br><span class="line"></span><br><span class="line">def clusterNodeAddFailureReport(clusterNode failNode, clusterNode senderNode) :</span><br><span class="line">// 获取故障节点的下线报告链表 </span><br><span class="line">list report_list = failNode.fail_reports; </span><br><span class="line">// 查找发送节点的下线报告是否存在 </span><br><span class="line">for(clusterNodeFailReport report : report_list):</span><br><span class="line">	// 存在发送节点的下线报告上报 </span><br><span class="line">	if(senderNode == report.node):</span><br><span class="line">		// 更新下线报告时间 </span><br><span class="line">		report.time = now(); </span><br><span class="line">		return 0; </span><br><span class="line">	// 如果下线报告不存在,插入新的下线报告</span><br><span class="line">	report_list.add(new clusterNodeFailReport(senderNode,now()));</span><br><span class="line">return 1;</span><br></pre></td></tr></table></figure>
+
+<h4 id="尝试客观下线"><a href="#尝试客观下线" class="headerlink" title="尝试客观下线"></a>尝试客观下线</h4><p>集群中的节点<strong>每次接收到其他节点的pfail状态，都会尝试触发客观下线</strong><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-37.png" alt=""></p>
+<h4 id="广播客观下线状态"><a href="#广播客观下线状态" class="headerlink" title="广播客观下线状态"></a>广播客观下线状态</h4><p>向集群广播一条fail消息，通知所有的节点将故障节点标记为客观下线，fail消息的消息体只包含故障节点的ID。</p>
+<ul>
+<li>通知集群内所有的节点标记故障节点为客观下线状态并立刻生效。</li>
+<li>通知故障节点的从节点触发故障转移流程。</li>
+</ul>
+<h3 id="故障恢复"><a href="#故障恢复" class="headerlink" title="故障恢复"></a>故障恢复</h3><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-39.png" alt=""></p>
+<h4 id="资格检查"><a href="#资格检查" class="headerlink" title="资格检查"></a>资格检查</h4><p><strong>每个从节点</strong>都要检查最后与主节点断线时间，<strong>如果从节点与主节点断线时间超过cluster-node-time*cluster-slave-validity-factor</strong>，不具备故障转移资格。</p>
+<h4 id="准备选举时间"><a href="#准备选举时间" class="headerlink" title="准备选举时间"></a>准备选举时间</h4><p>当从节点符合故障转移资格后，更新触发故障选举的时间，只有到达该时间后才能执行后续流程。这里之所以采用延迟触发机制，主要是通过对多个从节点使用不同的延迟选举时间来支持优先级问题。复制偏移量越大说明从节点延迟越低，那么 它应该具有更高的优先级来替换故障主节点。</p>
+<p>主节点b进入客观下线后，它的三个从节点根据自身复制偏移量设置延 迟选举时间，如复制偏移量最大的节点slave b-1延迟1秒执行，保证复制延 迟低的从节点优先发起选举。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_10-40.png" alt=""></p>
+<blockquote>
+<p>ps : 集群中进行主从替换的时候，和哨兵机制不同，哨兵机制是选举领头Sentinel，由领头Sentinel对从服务器进行升级。Redis Cluster则是由从节点自己去做升级，这就需要从节点自己去解决优先级的问题，所以采用延迟选举的方式。</p>
+</blockquote>
+<h4 id="从节点发起选举"><a href="#从节点发起选举" class="headerlink" title="从节点发起选举"></a>从节点发起选举</h4><ol>
+<li>更新配置纪元(当前配置版本号)</li>
+<li>广播选举消息<br> 在集群内广播选举消息（FAILOVER_AUTH_REQUEST），并记录已发 送过消息的状态，保证该从节点在一个配置纪元内只能发起一次选举。</li>
+</ol>
+<h4 id="选举投票"><a href="#选举投票" class="headerlink" title="选举投票"></a>选举投票</h4><p>只有持有槽的主节点才会处理故障选举消息（FAILOVER_AUTH_REQUEST），因为每个持有槽的节点在一个配置纪元 内都有唯一的一张选票，当接到第一个请求投票的从节点消息时回复 FAILOVER_AUTH_ACK消息作为投票，之后相同配置纪元内其他从节点的选举消息将忽略。</p>
+<blockquote>
+<p>ps Redis集群没有直接使用(故障节点的)从节点进行领导者选举，主要因为从节点数必须大于等于3个才能保证凑够N/2+1个节点，将导致从节点资源浪费。<br>使用集群内所有持有槽的主节点进行领导者选举，即使只有一个从节点也可以完 成选举过程。</p>
+</blockquote>
+<p><strong>故障主节点也算在投票数内，集群时所有主节点最少需要部署在3台物理机上才能避免单点问题。</strong></p>
+<h4 id="替换主节点"><a href="#替换主节点" class="headerlink" title="替换主节点"></a>替换主节点</h4><p>当从节点收集到N/2+1个持有槽的主节点投票时，从节点可以执行替换主节点操作。</p>
+<ol>
+<li>当前从节点取消复制变为主节点。</li>
+<li>执行clusterDelSlot操作撤销故障主节点负责的槽，并执行 clusterAddSlot把这些槽委派给自己。</li>
+<li>向集群广播自己的pong消息，通知集群内所有的节点当前从节点变 为主节点并接管了故障主节点的槽信息。</li>
+</ol>
+<h3 id="故障恢复时间"><a href="#故障恢复时间" class="headerlink" title="故障恢复时间"></a>故障恢复时间</h3><ol>
+<li>主观下线（pfail）识别时间=cluster-node-timeout</li>
+<li>主观下线状态消息传播时间&lt;=cluster-node-timeout/2。消息通信机制对超过cluster-node-timeout/2未通信节点会发起ping消息，消息体在选择包含哪些节点时会优先选取下线状态节点，所以通常这段时间内能够收集到半数以上主节点的pfail报告从而完成故障发现。</li>
+<li>从节点转移时间&lt;=1000毫秒。由于存在延迟发起选举机制，偏移量 最大的从节点会最多延迟1秒发起选举。通常第一次选举就会成功，所以从节点执行转移时间在1秒以内。</li>
+</ol>
+<h2 id="集群运维"><a href="#集群运维" class="headerlink" title="集群运维"></a>集群运维</h2><h3 id="集群完整性"><a href="#集群完整性" class="headerlink" title="集群完整性"></a>集群完整性</h3><p>为了保证集群完整性，默认情况下当集群<strong>16384个槽任何一个没有指派到节点时整个集群不可用</strong>。执行任何键命令返回（error）CLUSTERDOWN Hash slot not served错误。</p>
+<p>当持有槽的主节点下线时，从故障发现到自动完成转移期间整个集群是不可用状态，对于大多数业务无法容忍这种情况，因此建议<strong>将参数cluster-require-full-coverage配置为no，当主节点故障时只影响它负责槽的相关命令执行，不会影响其他主节点的可用性</strong>。</p>
+<h3 id="带宽消耗"><a href="#带宽消耗" class="headerlink" title="带宽消耗"></a>带宽消耗</h3><p>集群带宽消耗主要分为：读写命令消耗+Gossip消息消耗。</p>
+<ol>
+<li>在满足业务需要的情况下尽量避免大集群。</li>
+<li>适度提高cluster-node-timeout降低消息发送频率</li>
+<li>如果条件允许集群尽量均匀部署在更多机器上<h3 id="Pub-Sub广播问题"><a href="#Pub-Sub广播问题" class="headerlink" title="Pub/Sub广播问题"></a>Pub/Sub广播问题</h3>在集群模式下内部实现对所有的publish命令都会向 所有的节点进行广播，造成<strong>每条publish数据都会在集群内所有节点传播一次，加重带宽负担。</strong></li>
+</ol>
+<h3 id="数据倾斜"><a href="#数据倾斜" class="headerlink" title="数据倾斜"></a>数据倾斜</h3><ol>
+<li>节点和槽分配严重不均。</li>
+<li>不同槽对应键数量差异过大(哈希算法不均匀)</li>
+<li>集合对象包含大量元素（不建议使用大集合，可以根据业务场景对大集合进行拆分）</li>
+<li>内存相关配置不一致。内存相关配置指hash-max-ziplist-value、setmax-intset-entries等压缩数据结构配置。（当集群大量使用hash、set等数据结构 时，如果内存压缩数据结构配置不一致，极端情况下会相差数倍的内存，从 而造成节点内存量倾斜。）</li>
+</ol>
+<h3 id="请求倾斜-热点问题"><a href="#请求倾斜-热点问题" class="headerlink" title="请求倾斜(热点问题)"></a>请求倾斜(热点问题)</h3><p>集群内特定节点请求量/流量过大将导致节点之间负载不均，影响集群均衡和运维成本。常出现在热点键场景，当键命令消耗较低时如小对象的 get、set、incr等，即使请求量差异较大一般也不会产生负载严重不均。</p>
+<p>当热点键对应高算法复杂度的命令或者是大对象操作如hgetall、smembers等，会导致对应节点负载过高的情况。避免方式如下： </p>
+<ol>
+<li>合理设计键，热点大集合对象做拆分或使用hmget替代hgetall避免整体读取。</li>
+<li>不要使用热键作为hash_tag，避免映射到同一槽。</li>
+<li>对于一致性要求不高的场景，客户端可使用<strong>本地缓存</strong>减少热键调用。</li>
+</ol>
+<h3 id="集群读写分离"><a href="#集群读写分离" class="headerlink" title="集群读写分离"></a>集群读写分离</h3><p><strong>从节点开启只读连接</strong></p>
+<p>集群模式下从节点不接受任何读写请求，发送过来的键命令会重定向到 负责槽的主节点上（其中包括它的主节点）。当需要使用从节点分担主节点读压力时，可以使用readonly命令打开客户端连接只读状态。之前的复制配置slave-read-only在集群模式下无效。当开启只读状态时，从节点接收读命 令处理流程变为：如果对应的槽属于自己正在复制的主节点则直接执行读命 令，否则返回重定向信息。</p>
+<p><strong>客户端支持读写分离</strong><br>需要客户端维护从节点的链接。</p>
+<p>当使用从节点用于读写分离时会存在数据延迟、过期数据、从节点可用性等问题，需要根据自身业务提前作出规避。</p>
+<h1 id="客户端分片"><a href="#客户端分片" class="headerlink" title="客户端分片"></a>客户端分片</h1><p>Redis Sharding可以说是Redis Cluster出来之前，业界普遍使用的多Redis实例集群方法。其主要思想是采用哈希算法将Redis数据的key进行散列，通过hash函数，特定的key会映射到特定的Redis节点上。这样，客户端就知道该向哪个Redis节点操作数据。</p>
+<h2 id="jedis实现"><a href="#jedis实现" class="headerlink" title="jedis实现"></a>jedis实现</h2><ol>
+<li>采用一致性哈希算法</li>
+<li>虚节点</li>
+</ol>
+<h1 id="代理方案"><a href="#代理方案" class="headerlink" title="代理方案"></a>代理方案</h1><h2 id="Twemproxy"><a href="#Twemproxy" class="headerlink" title="Twemproxy"></a>Twemproxy</h2><h2 id="codis"><a href="#codis" class="headerlink" title="codis"></a>codis</h2><h1 id="Redis集群管理工具CacheCloud"><a href="#Redis集群管理工具CacheCloud" class="headerlink" title="Redis集群管理工具CacheCloud"></a>Redis集群管理工具CacheCloud</h1>
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/redis/" rel="tag"># redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/07/03/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis07_Sentinel/" rel="prev" title="redis07_Sentinel">
+      <i class="fa fa-chevron-left"></i> redis07_Sentinel
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/15/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis09_%E5%B8%B8%E8%A7%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF%E5%92%8C%E9%97%AE%E9%A2%98%E6%95%B4%E7%90%86/" rel="next" title="redis09_常见问题整理">
+      redis09_常见问题整理 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Redis集群"><span class="nav-number">1.</span> <span class="nav-text">Redis集群</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#概述"><span class="nav-number">2.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#数据分布理论"><span class="nav-number">3.</span> <span class="nav-text">数据分布理论</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#一致性性哈希算法"><span class="nav-number">3.1.</span> <span class="nav-text">一致性性哈希算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Hash环的数据倾斜问题"><span class="nav-number">3.1.1.</span> <span class="nav-text">Hash环的数据倾斜问题</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Redis-Cluster"><span class="nav-number">4.</span> <span class="nav-text">Redis Cluster</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#集群功能限制"><span class="nav-number">4.1.</span> <span class="nav-text">集群功能限制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#集群搭建"><span class="nav-number">4.2.</span> <span class="nav-text">集群搭建</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#启动节点"><span class="nav-number">4.2.1.</span> <span class="nav-text">启动节点</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#节点握手"><span class="nav-number">4.2.2.</span> <span class="nav-text">节点握手</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#槽指派"><span class="nav-number">4.2.3.</span> <span class="nav-text">槽指派</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#节点通信"><span class="nav-number">4.3.</span> <span class="nav-text">节点通信</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#数据交换流程"><span class="nav-number">4.3.1.</span> <span class="nav-text">数据交换流程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#集群扩容-缩容"><span class="nav-number">4.4.</span> <span class="nav-text">集群扩容/缩容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#请求重定向"><span class="nav-number">4.5.</span> <span class="nav-text">请求重定向</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#Smart客户端"><span class="nav-number">4.5.1.</span> <span class="nav-text">Smart客户端</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ASK重定向"><span class="nav-number">4.5.2.</span> <span class="nav-text">ASK重定向</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#故障转移"><span class="nav-number">4.6.</span> <span class="nav-text">故障转移</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#故障发现"><span class="nav-number">4.6.1.</span> <span class="nav-text">故障发现</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#主观下线"><span class="nav-number">4.6.1.1.</span> <span class="nav-text">主观下线</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#客观下线"><span class="nav-number">4.6.1.2.</span> <span class="nav-text">客观下线</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#维护下线报告链表"><span class="nav-number">4.6.1.3.</span> <span class="nav-text">维护下线报告链表</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#尝试客观下线"><span class="nav-number">4.6.1.4.</span> <span class="nav-text">尝试客观下线</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#广播客观下线状态"><span class="nav-number">4.6.1.5.</span> <span class="nav-text">广播客观下线状态</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#故障恢复"><span class="nav-number">4.6.2.</span> <span class="nav-text">故障恢复</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#资格检查"><span class="nav-number">4.6.2.1.</span> <span class="nav-text">资格检查</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#准备选举时间"><span class="nav-number">4.6.2.2.</span> <span class="nav-text">准备选举时间</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#从节点发起选举"><span class="nav-number">4.6.2.3.</span> <span class="nav-text">从节点发起选举</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#选举投票"><span class="nav-number">4.6.2.4.</span> <span class="nav-text">选举投票</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#替换主节点"><span class="nav-number">4.6.2.5.</span> <span class="nav-text">替换主节点</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#故障恢复时间"><span class="nav-number">4.6.3.</span> <span class="nav-text">故障恢复时间</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#集群运维"><span class="nav-number">4.7.</span> <span class="nav-text">集群运维</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#集群完整性"><span class="nav-number">4.7.1.</span> <span class="nav-text">集群完整性</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#带宽消耗"><span class="nav-number">4.7.2.</span> <span class="nav-text">带宽消耗</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Pub-Sub广播问题"><span class="nav-number">4.7.3.</span> <span class="nav-text">Pub/Sub广播问题</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#数据倾斜"><span class="nav-number">4.7.4.</span> <span class="nav-text">数据倾斜</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#请求倾斜-热点问题"><span class="nav-number">4.7.5.</span> <span class="nav-text">请求倾斜(热点问题)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#集群读写分离"><span class="nav-number">4.7.6.</span> <span class="nav-text">集群读写分离</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#客户端分片"><span class="nav-number">5.</span> <span class="nav-text">客户端分片</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#jedis实现"><span class="nav-number">5.1.</span> <span class="nav-text">jedis实现</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#代理方案"><span class="nav-number">6.</span> <span class="nav-text">代理方案</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Twemproxy"><span class="nav-number">6.1.</span> <span class="nav-text">Twemproxy</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#codis"><span class="nav-number">6.2.</span> <span class="nav-text">codis</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Redis集群管理工具CacheCloud"><span class="nav-number">7.</span> <span class="nav-text">Redis集群管理工具CacheCloud</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="基本数据结构ProducerRecord(0.10.2.1)一个 Producer record封装了一条待发送的消息(或称为记录)。我们以0.10.2.1版本的消息格式进行 producer的说明。ProducerRecord由5个字段构成,它们分别如下:  topic:该消息所属的 topic partition:该消息所属的分区。 key:消息key value:消息体 timestamp:">
+<meta name="keywords" content="mq,kafka">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kafka02_producer">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;03&#x2F;29&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;mq&#x2F;kafka&#x2F;kafka02_producer&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="基本数据结构ProducerRecord(0.10.2.1)一个 Producer record封装了一条待发送的消息(或称为记录)。我们以0.10.2.1版本的消息格式进行 producer的说明。ProducerRecord由5个字段构成,它们分别如下:  topic:该消息所属的 topic partition:该消息所属的分区。 key:消息key value:消息体 timestamp:">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_producer_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_producer_02.png">
+<meta property="og:updated_time" content="2020-06-15T12:21:17.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_producer_01.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/03/29/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka02_producer/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>kafka02_producer | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/03/29/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka02_producer/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kafka02_producer
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-03-29 20:00:00" itemprop="dateCreated datePublished" datetime="2019-03-29T20:00:00+08:00">2019-03-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-15 20:21:17" itemprop="dateModified" datetime="2020-06-15T20:21:17+08:00">2020-06-15</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/" itemprop="url" rel="index"><span itemprop="name">mq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/kafka/" itemprop="url" rel="index"><span itemprop="name">kafka</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="基本数据结构"><a href="#基本数据结构" class="headerlink" title="基本数据结构"></a>基本数据结构</h1><h2 id="ProducerRecord-0-10-2-1"><a href="#ProducerRecord-0-10-2-1" class="headerlink" title="ProducerRecord(0.10.2.1)"></a>ProducerRecord(0.10.2.1)</h2><p>一个 Producer record封装了一条待发送的消息(或称为记录)。我们以0.10.2.1版本的消息格式进行 producer的说明。<br>ProducerRecord由5个字段构成,它们分别如下:</p>
+<ul>
+<li>topic:该消息所属的 topic</li>
+<li>partition:该消息所属的分区。</li>
+<li>key:消息key</li>
+<li>value:消息体</li>
+<li>timestamp:消息时间戳。</li>
+</ul>
+<h2 id="Record-Metadata"><a href="#Record-Metadata" class="headerlink" title="Record Metadata"></a>Record Metadata</h2><p>Kafka服务器端返回给客户端的消息的元数据信息,包含如下内容：</p>
+<ul>
+<li>offset:消息在分区日志中的位移信息。</li>
+<li>timestamp:消息时间戳</li>
+<li>topic/partition:所属 topic的分区。</li>
+<li>checksum:消息CRC32码。</li>
+<li>serializedKeysize:序列化后的消息key字节数。</li>
+<li>serialized valueSize:序列化后的消息 value字节数。</li>
+</ul>
+<a id="more"></a>
+<h1 id="工作流程"><a href="#工作流程" class="headerlink" title="工作流程"></a>工作流程</h1><p>kafka的producer是通过<strong>异步</strong>的方式去发送消息的。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_producer_01.png" alt=""></p>
+<h1 id="producer主要参数"><a href="#producer主要参数" class="headerlink" title="producer主要参数"></a>producer主要参数</h1><h2 id="acks"><a href="#acks" class="headerlink" title="acks"></a>acks</h2><p>acks参数用于控制 producer生产消息的持久性。</p>
+<p>acks=0: 设置成0表示 producer完全不理睬 leader broker端的处理结果。</p>
+<p>acks=all或者-1：表示当发送消息时, leader broker不仅会将消息写入本地日志,同时还会等待ISR中所有其他副本都成功写入它们各自的本地日志后,才发送响应结果给producer</p>
+<p>acks=1:是0和all折中的方案,也是默认的参数值。 producer发送消息后 leader broker仅将该消息写入本地日志,然后便发送响应结果给 producer,而无须等待ISR中其他副本写入该消息。(leader broker未同步给ISR副本时崩溃，会导致消息丢失)</p>
+<h2 id="retries"><a href="#retries" class="headerlink" title="retries"></a>retries</h2><p>默认0，不进行重试。Kafka broker在处理写入请求时可能因为瞬时的故障(比如瞬时的 leader选举或者网络抖动)导致消息发送失败。这种故障通常都是可以自行恢复的,可以通过这个参数让producer自动重试发送。</p>
+<p>消息重试发送会引入新的问题</p>
+<p><strong>重试可能造成消息的重复发送</strong>  </p>
+<p>比如由于瞬时的网络抖动使得 broker端已成功写入消息但没有成功发送响应给 producer,因此 producer会认为消息发送失败,从而开启重试机制。</p>
+<p>我们需要在 consumer端保证同一个<strong>消息消费的幂等性</strong>。</p>
+<p>0.11.0.0版本开始支持“精确一次”处理语义,从设计避免了类似的问题。(<strong>事务消息可以保证producer发送消息的幂等性， 消息只发送一次，要么发送成功，要么发送失败，但是不保证我们消费的幂等性</strong>)</p>
+<p><strong>重试可能造成消息的乱序</strong><br>当前 producer会将多个消息发送请求(默认是5个)缓存在内存中,如果由于某种原因发生了消息发送的重试,就可能造成消息流的乱序。</p>
+<p>为了避免乱序发生,Java版本 producer提供了max.in.flight.requets per.connection参数,用户将此参数设置成1, producer将确保某一时刻只能发送一个请求。</p>
+<h1 id="消息分区机制"><a href="#消息分区机制" class="headerlink" title="消息分区机制"></a>消息分区机制</h1><p>Kafka producer发送过程中一个很重要的步骤就是要确定将消息发送到指定的topic的哪个分区中。 具体实现可以看producer的源码。</p>
+<ul>
+<li>默认分区策略<ul>
+<li>key不为null，是根据hash算法murmur2就算出key的hash值，然后和分区数进行取模运算。</li>
+<li>key为null，partitioner会选择轮询的方式来确保消息在 topic的所有分区上均匀分配。</li>
+</ul>
+</li>
+<li>自定义分区策略，producer提供了分区策略以及对应的分区器(partitioner)供用户使用。</li>
+</ul>
+<h1 id="解决消息丢失问题"><a href="#解决消息丢失问题" class="headerlink" title="解决消息丢失问题"></a>解决消息丢失问题</h1><h2 id="producer端"><a href="#producer端" class="headerlink" title="producer端"></a>producer端</h2><ul>
+<li>acks=all</li>
+<li>retries = MAX_INT</li>
+<li>max.in.flight.requets per.connection=1  防止消息乱序，只能一个一个发</li>
+<li>使用带有回调机制的send 会把发送结果回调到callback里面</li>
+<li>callback中立即显示关闭producer，否则默认情况下producer会将未发送的消息发送出去才关闭，可能会导致消息乱序。</li>
+</ul>
+<h2 id="broker端"><a href="#broker端" class="headerlink" title="broker端"></a>broker端</h2><ul>
+<li>unclean.leader.election.enable = false 关闭unclean leader选举，即不允许非ISR中的副本被选举为 leader,从而避免broker端因日志水位截断而造成的消息丢失。</li>
+<li>replication.factor &gt;=3     副本因子&gt;=3</li>
+<li>min.insync.replicas &gt; 1    最少ISR副本确认数&gt;1</li>
+<li>确保 replication.factor &gt; min.insync.replicas</li>
+</ul>
+<h1 id="幂等性producer"><a href="#幂等性producer" class="headerlink" title="幂等性producer"></a>幂等性producer</h1><p><strong>0.11.0.0版本引入的幂等性producer表示它的发送操作是幂等的。</strong>瞬时的发送错误可能导致producer端出现重试,同一条消息被 producer发送多次,但在 broker端这条消息只会被写入日志一次。对于单个 topic分区而言,这种 producer提供的幂等性消除了各种错误导致的重复消息。</p>
+<h2 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h2><p>发到broker上的每批消息都会被赋予一个序列号(sequence number),用于消息去重。这个序列号会被保存到kafka日志里面，持久化。</p>
+<p>kafka会为每一个producer分配一个PID，pid的分配是对用户透明的。</p>
+<p>消息被发送到每一个分区，都有对应的序列号值，这个值总是严格单调递增的。</p>
+<p>PID、分区号、消息序列号的关系可以视为kv的关系，PID+分区号为key，value为消息序列号。若发送的消息，小于或等于broker端保存的序列号，broker就会拒绝这条消息的写入。</p>
+<p>这种设计确保了即使出现重试操作,每条消息也只会被保存在日志中一次。不过,<strong>由于每个新的 producer实例都会被分配不同的PID,当前设计只能保证单个 producer实例的EOS语义</strong>,而无法实现多个 producer实例一起提供EOS语义。这一点要特别注意。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_producer_02.png" alt=""></p>
+<h1 id="事务消息"><a href="#事务消息" class="headerlink" title="事务消息"></a>事务消息</h1><p>基于消息中间件的事务消息来完成分布式事务。</p>
+<p>事务消息可以确保<strong>本地执行事务与消息发送是原子的</strong>：先发送一条消息到消息中间件，然后执行本地事务，当本地事务成功后再发送提交确认到消息中间件，然后这条消息才能被其他业务消费者所能感知，从而确保原子性。</p>
+<p><strong>Kafka为实现事务要求应用程序必须提供一个唯一的id来标识事务。</strong>这个id被称为事务id,或 TransactionalId,它必须在应用程序所有的会话上是唯一的。值得注意的是, TransactionalId与上面所说的PID是不同的,前者是由用户显式提供的,而后者是 prodcuer自行分配的。</p>
+<p><strong>Kafka会保证，只有producer提交了事务以后，事务消息才会对consumer可见</strong></p>
+<h2 id="流程"><a href="#流程" class="headerlink" title="流程"></a>流程</h2><h3 id="查找事务协调者"><a href="#查找事务协调者" class="headerlink" title="查找事务协调者"></a>查找事务协调者</h3><p>生产者会首先发起一个查找事务协调者的请求(FindCoordinatorRequest)。协调者会负责分配一个PID给生产者。类似于消费组的协调者。</p>
+<p>Transaction Coordinator 和 Consumer Coordinator一样，运行在集群中的某个broker上面。</p>
+<h3 id="获取produce-ID"><a href="#获取produce-ID" class="headerlink" title="获取produce ID"></a>获取produce ID</h3><p>在知道事务协调者后，生产者需要往协调者发送初始化pid请求(initPidRequest)。这个请求分两种情况：</p>
+<ul>
+<li><p>不带transactionID 这种情况下直接生成一个新的produce ID即可，返回给客户端</p>
+</li>
+<li><p>带transactionID 这种情况下，kafka根据transactionalId获取对应的PID，这个对应关系是保存在事务日志中。这样可以确保相同的TransactionId返回相同的PID，用于恢复或者终止之前未完成的事务。</p>
+</li>
+</ul>
+<h3 id="启动事务"><a href="#启动事务" class="headerlink" title="启动事务"></a>启动事务</h3><p>生产者通过调用beginTransaction接口启动事务，此时只是内部的状态记录为事务开始，但是事务协调者认为事务开始只有当生产者开始发送第一条消息才开始。</p>
+<h3 id="提交或回滚事务"><a href="#提交或回滚事务" class="headerlink" title="提交或回滚事务"></a>提交或回滚事务</h3><p>用户通过调用commitTransaction或abortTranssaction方法提交或回滚事务。</p>
+<h2 id="事务消息对consumer的意义"><a href="#事务消息对consumer的意义" class="headerlink" title="事务消息对consumer的意义"></a>事务消息对consumer的意义</h2><p>如果以 consumer的角度而言,如前所述,事务的支持要弱一些,原因如下:</p>
+<ol>
+<li>对于 compacted的 topic而言,事务中的消息可能已经被删除了</li>
+<li>事务可能跨多个日志段( log segment),因此若老的日志段被删除,用户将丢失事务中的部分消息。</li>
+<li>consumer程序可能使用seek方法定位事务中的任意位置,也可能造成部分消息的丢失。</li>
+<li>consumer可能选择不消费事务中的所有消息,即无法保证读取事务的全部消息。</li>
+</ol>
+<h1 id="参考书籍"><a href="#参考书籍" class="headerlink" title="参考书籍"></a>参考书籍</h1><p>Apache kafka实战<br>Kafka权威指南</p>
+<p><a href="https://zhuanlan.zhihu.com/p/42046847" target="_blank" rel="noopener">https://zhuanlan.zhihu.com/p/42046847</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mq/" rel="tag"># mq</a>
+              <a href="/tags/kafka/" rel="tag"># kafka</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/03/28/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka01_%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/" rel="prev" title="kafka01_基本概念">
+      <i class="fa fa-chevron-left"></i> kafka01_基本概念
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/03/30/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka03_consumer/" rel="next" title="kafka03_consumer">
+      kafka03_consumer <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#基本数据结构"><span class="nav-number">1.</span> <span class="nav-text">基本数据结构</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#ProducerRecord-0-10-2-1"><span class="nav-number">1.1.</span> <span class="nav-text">ProducerRecord(0.10.2.1)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Record-Metadata"><span class="nav-number">1.2.</span> <span class="nav-text">Record Metadata</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#工作流程"><span class="nav-number">2.</span> <span class="nav-text">工作流程</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#producer主要参数"><span class="nav-number">3.</span> <span class="nav-text">producer主要参数</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#acks"><span class="nav-number">3.1.</span> <span class="nav-text">acks</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#retries"><span class="nav-number">3.2.</span> <span class="nav-text">retries</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#消息分区机制"><span class="nav-number">4.</span> <span class="nav-text">消息分区机制</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#解决消息丢失问题"><span class="nav-number">5.</span> <span class="nav-text">解决消息丢失问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#producer端"><span class="nav-number">5.1.</span> <span class="nav-text">producer端</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#broker端"><span class="nav-number">5.2.</span> <span class="nav-text">broker端</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#幂等性producer"><span class="nav-number">6.</span> <span class="nav-text">幂等性producer</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#实现原理"><span class="nav-number">6.1.</span> <span class="nav-text">实现原理</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#事务消息"><span class="nav-number">7.</span> <span class="nav-text">事务消息</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#流程"><span class="nav-number">7.1.</span> <span class="nav-text">流程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#查找事务协调者"><span class="nav-number">7.1.1.</span> <span class="nav-text">查找事务协调者</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#获取produce-ID"><span class="nav-number">7.1.2.</span> <span class="nav-text">获取produce ID</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#启动事务"><span class="nav-number">7.1.3.</span> <span class="nav-text">启动事务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#提交或回滚事务"><span class="nav-number">7.1.4.</span> <span class="nav-text">提交或回滚事务</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#事务消息对consumer的意义"><span class="nav-number">7.2.</span> <span class="nav-text">事务消息对consumer的意义</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考书籍"><span class="nav-number">8.</span> <span class="nav-text">参考书籍</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

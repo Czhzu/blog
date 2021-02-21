@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="topic分区管理preferred leader选举在一个 Kafka集群中, broker服务器宕机或崩溃是不可避免的。一旦发生这种情况,该broker上的那些 leader副本将变为不可用,因此就必然要求Kaka把这些分区的 leader转移到其他的 broker上。即使崩溃 broker重启回来,其上的副本也只能作为 follower副本加入ISR。">
+<meta name="keywords" content="mq,kafka">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kafka05_集群管理|常见问题">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;04&#x2F;02&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;mq&#x2F;kafka&#x2F;kafka05_%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86|%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="topic分区管理preferred leader选举在一个 Kafka集群中, broker服务器宕机或崩溃是不可避免的。一旦发生这种情况,该broker上的那些 leader副本将变为不可用,因此就必然要求Kaka把这些分区的 leader转移到其他的 broker上。即使崩溃 broker重启回来,其上的副本也只能作为 follower副本加入ISR。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-06-15T12:49:35.000Z">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2019/04/02/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka05_%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86|%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>kafka05_集群管理|常见问题 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/04/02/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka05_%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86|%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kafka05_集群管理|常见问题
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-02 20:00:00" itemprop="dateCreated datePublished" datetime="2019-04-02T20:00:00+08:00">2019-04-02</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-15 20:49:35" itemprop="dateModified" datetime="2020-06-15T20:49:35+08:00">2020-06-15</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/" itemprop="url" rel="index"><span itemprop="name">mq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/kafka/" itemprop="url" rel="index"><span itemprop="name">kafka</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="topic分区管理"><a href="#topic分区管理" class="headerlink" title="topic分区管理"></a>topic分区管理</h1><h2 id="preferred-leader选举"><a href="#preferred-leader选举" class="headerlink" title="preferred leader选举"></a>preferred leader选举</h2><p>在一个 Kafka集群中, broker服务器宕机或崩溃是不可避免的。一旦发生这种情况,该broker上的那些 leader副本将变为不可用,因此就必然要求Kaka把这些分区的 leader转移到其他的 broker上。即使崩溃 broker重启回来,其上的副本也只能作为 follower副本加入ISR。</p>
+<a id="more"></a>
+
+<p>随着集群的不断运行,这种 leader的不均衡现象开始出现,即集群中的一小部分 broker上承载了大量的分区 leader副本。为了校正这种情况,Kaka引入了<strong>首选副本</strong>( preferred replica)的概念</p>
+<p>broker重启后，可以通过脚本，将leader副本重新调整到相应的broker上。</p>
+<h2 id="增加broker"><a href="#增加broker" class="headerlink" title="增加broker"></a>增加broker</h2><p>当kafka的broker不够用时，我们需要对kafka进行扩容。</p>
+<p><strong>新增的broker是不会自动分担已有的topic负载的</strong></p>
+<p>由于Kaka集群的服务发现交由 ZooKeeper来处理,因此向Kaka集群增加新的 broker服务器非常容易。用户只需要为新增 broker设置一个唯一的 broker. id,然后启动即可。 Kafka集群能自动地发现新启动的 broker并同步所有的元数据信息,主要包括当前集群有哪些主题(下称 topic)以及 topic都有哪些分区等。</p>
+<p>唯一有缺憾的是,新增的 broker不会自动被分配任何已有的 topic分区,因此用户必须手动执行分区重分配。</p>
+<h2 id="分区重分配-扩容"><a href="#分区重分配-扩容" class="headerlink" title="分区重分配(扩容)"></a>分区重分配(扩容)</h2><p>kafka可以通过脚本，完成分区重分配的工作，在实际生产环境中,用户一定要谨慎地发起分区重分配操作,因为分区在不同 broker间进行数据迁移会极大地占用 broker机器的带宽资源,从而显著地影响 clients端业务应用的性能。如果可能的话,尽量在非高峰业务时段执行重分配操作。</p>
+<h3 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h3><p>首先 kafka会在新的broker上创建对应副本，并同步leader 副本的进度，直到加入ISR。<br>然后kafka会停止目前的leader副本的写入，并将leader副本 设置为新的broker上的副本。</p>
+<h1 id="常见问题"><a href="#常见问题" class="headerlink" title="常见问题"></a>常见问题</h1><h2 id="消息堆积"><a href="#消息堆积" class="headerlink" title="消息堆积"></a>消息堆积</h2><p>当出现消息堆积，需要增加消费者。如果topic分区数很少的话(小于消费者数量)，新增的消费者会闲置，不会消费数据。</p>
+<p>所以创建topic分区数的时候，应该设置合理的分区数，不能太小。</p>
+<p>对于生产环境，无法进行紧急扩容的，可以通过新建一个topic，原来的topic的消费者不消费任何数据，直接转发到新的topic进行消费。</p>
+<h2 id="磁盘快满了"><a href="#磁盘快满了" class="headerlink" title="磁盘快满了"></a>磁盘快满了</h2><p>如果mq磁盘快慢了，创建一个新的mq，把数据放到新的mq里面，等闲时在去补数据。</p>
+<h2 id="kafka是如何保证高可用的"><a href="#kafka是如何保证高可用的" class="headerlink" title="kafka是如何保证高可用的"></a>kafka是如何保证高可用的</h2><p>副本因子，ISR</p>
+<h2 id="消息丢失"><a href="#消息丢失" class="headerlink" title="消息丢失"></a>消息丢失</h2><p>通过producer设置和broker设置，可以做到消息不丢失，见producer篇。</p>
+<h2 id="消息顺序"><a href="#消息顺序" class="headerlink" title="消息顺序"></a>消息顺序</h2><p>kafka会保证同一个key的消息，会被分配到同一个分区里面。</p>
+<h2 id="消息重复"><a href="#消息重复" class="headerlink" title="消息重复"></a>消息重复</h2><p>consumer端保证消息消费的幂等性</p>
+<h2 id="kafka消息消费超时-消息重试"><a href="#kafka消息消费超时-消息重试" class="headerlink" title="kafka消息消费超时(消息重试)"></a>kafka消息消费超时(消息重试)</h2><p>创建两个topic，consumer如果在指定时间不能消费掉一条消息的话，强制结束，并将消息发到重试的topic</p>
+<h2 id="kafka为什么这么快"><a href="#kafka为什么这么快" class="headerlink" title="kafka为什么这么快"></a>kafka为什么这么快</h2><h3 id="写入的时候"><a href="#写入的时候" class="headerlink" title="写入的时候"></a>写入的时候</h3><ol>
+<li>顺序写入</li>
+<li>MMFile </li>
+</ol>
+<p>即便是顺序写入硬盘，硬盘的访问速度还是不可能追上内存。所以Kafka的数据并不是实时的写入硬盘 ，它充分利用了现代操作系统分页存储来利用内存提高I/O效率。</p>
+<p>Memory Mapped Files(后面简称mmap)也被翻译成 内存映射文件 ，在64位操作系统中一般可以表示20G的数据文件，它的工作原理是直接利用操作系统的Page来实现文件到物理内存的直接映射。<br>完成映射之后你对物理内存的操作会被同步到硬盘上（操作系统在适当的时候）。</p>
+<p>通过mmap，进程像读写硬盘一样读写内存（当然是虚拟机内存），也不必关心内存的大小有虚拟内存为我们兜底。<br>使用这种方式可以获取很大的I/O提升，省去了用户空间到内核空间复制的开销（调用文件的read会把数据先放到内核空间的内存中，然后再复制到用户空间的内存中。）</p>
+<p>但也有一个很明显的缺陷——不可靠，写到mmap中的数据并没有被真正的写到硬盘，操作系统会在程序主动调用flush的时候才把数据真正的写到硬盘。<br>Kafka提供了一个参数——producer.type来控制是不是主动flush，如果Kafka写入到mmap之后就立即flush然后再返回Producer叫 同步 (sync)；写入mmap之后立即返回Producer不调用flush叫异步 (async)。</p>
+<h3 id="读的时候"><a href="#读的时候" class="headerlink" title="读的时候"></a>读的时候</h3><p>零拷贝 sendfile<br>数据直接在内核完成输入和输出，不需要拷贝到用户空间再写出去。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mq/" rel="tag"># mq</a>
+              <a href="/tags/kafka/" rel="tag"># kafka</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/01/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka04_broker/" rel="prev" title="kafka04_broker">
+      <i class="fa fa-chevron-left"></i> kafka04_broker
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/04/05/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq01_%E6%A6%82%E8%BF%B0&NameServer/" rel="next" title="rocketmq01_概述&NameServer">
+      rocketmq01_概述&NameServer <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#topic分区管理"><span class="nav-number">1.</span> <span class="nav-text">topic分区管理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#preferred-leader选举"><span class="nav-number">1.1.</span> <span class="nav-text">preferred leader选举</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#增加broker"><span class="nav-number">1.2.</span> <span class="nav-text">增加broker</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分区重分配-扩容"><span class="nav-number">1.3.</span> <span class="nav-text">分区重分配(扩容)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#实现原理"><span class="nav-number">1.3.1.</span> <span class="nav-text">实现原理</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#常见问题"><span class="nav-number">2.</span> <span class="nav-text">常见问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#消息堆积"><span class="nav-number">2.1.</span> <span class="nav-text">消息堆积</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#磁盘快满了"><span class="nav-number">2.2.</span> <span class="nav-text">磁盘快满了</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kafka是如何保证高可用的"><span class="nav-number">2.3.</span> <span class="nav-text">kafka是如何保证高可用的</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息丢失"><span class="nav-number">2.4.</span> <span class="nav-text">消息丢失</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息顺序"><span class="nav-number">2.5.</span> <span class="nav-text">消息顺序</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息重复"><span class="nav-number">2.6.</span> <span class="nav-text">消息重复</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kafka消息消费超时-消息重试"><span class="nav-number">2.7.</span> <span class="nav-text">kafka消息消费超时(消息重试)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#kafka为什么这么快"><span class="nav-number">2.8.</span> <span class="nav-text">kafka为什么这么快</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#写入的时候"><span class="nav-number">2.8.1.</span> <span class="nav-text">写入的时候</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#读的时候"><span class="nav-number">2.8.2.</span> <span class="nav-text">读的时候</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

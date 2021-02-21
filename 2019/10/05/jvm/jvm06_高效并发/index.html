@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="java内存模型Java内存模型用来屏蔽各种硬件和操作系统的内存访问差异，以实现让Java程序在各种平台上都能达到一致的内存访问效果">
+<meta name="keywords" content="jvm">
+<meta property="og:type" content="article">
+<meta property="og:title" content="jvm06_高效并发">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;10&#x2F;05&#x2F;jvm&#x2F;jvm06_%E9%AB%98%E6%95%88%E5%B9%B6%E5%8F%91&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="java内存模型Java内存模型用来屏蔽各种硬件和操作系统的内存访问差异，以实现让Java程序在各种平台上都能达到一致的内存访问效果">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_12-2.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_12-3.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_12-4.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_12-5.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_sy-1.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_sy-4.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_sy_05.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_sy-2.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_sy-3.png">
+<meta property="og:updated_time" content="2020-06-27T08:47:01.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;jvm&#x2F;jvm_12-2.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/10/05/jvm/jvm06_%E9%AB%98%E6%95%88%E5%B9%B6%E5%8F%91/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>jvm06_高效并发 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/10/05/jvm/jvm06_%E9%AB%98%E6%95%88%E5%B9%B6%E5%8F%91/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          jvm06_高效并发
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-10-05 20:46:25" itemprop="dateCreated datePublished" datetime="2019-10-05T20:46:25+08:00">2019-10-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-27 16:47:01" itemprop="dateModified" datetime="2020-06-27T16:47:01+08:00">2020-06-27</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/jvm/" itemprop="url" rel="index"><span itemprop="name">jvm</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="java内存模型"><a href="#java内存模型" class="headerlink" title="java内存模型"></a>java内存模型</h1><p><strong>Java内存模型用来屏蔽各种硬件和操作系统的内存访问差异，以实现让Java程序在各种平台上都能达到一致的内存访问效果</strong></p>
+<a id="more"></a>
+<p>java内存模型的主要目的是定义程序中各种变量的访问规则。</p>
+<p>java内存模型规定了：</p>
+<ol>
+<li>所有变量(实例字段、静态字段等<strong>非线程私有变量</strong>)都存储在主内存中。</li>
+<li>每个线程有自己的工作内存，<strong>工作内存中保存了被该线程使用到的变量的主内存副本拷贝</strong>,线程对变量的所有操作(如读取、赋值等)都必须在工作内存中进行，而<strong>不能直接读写主内存的变量。</strong></li>
+<li><strong>不同的线程之间也无法直接访问对方工作内存中的变量</strong>，线程间变量值的传递均需要通过主内存来完成。</li>
+</ol>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_12-2.png" alt=""></p>
+<h1 id="volatile关键字"><a href="#volatile关键字" class="headerlink" title="volatile关键字"></a>volatile关键字</h1><p>volatile关键字有两个语义：</p>
+<ol>
+<li><strong>保证可见性</strong></li>
+<li><strong>静止指令重排序</strong></li>
+</ol>
+<p><strong>保证可见性实现原理</strong>  </p>
+<blockquote>
+<ol>
+<li>修改volatile变量时会强制将修改后的值刷新的主内存中。</li>
+<li>每次读取volatile变量时都从主内存中重新读。</li>
+</ol>
+</blockquote>
+<p><strong>禁止指令重排序优化</strong>  </p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">//单例DCL(双锁检测)</span></span><br><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">Singleton</span> </span>&#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">volatile</span> <span class="keyword">static</span> Singleton instance;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> Singleton <span class="title">getInstance</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;</span><br><span class="line">            <span class="keyword">synchronized</span> (Singleton<span class="class">.<span class="keyword">class</span>) </span>&#123;</span><br><span class="line">                <span class="keyword">if</span> (instance == <span class="keyword">null</span>) &#123;</span><br><span class="line">                    instance = <span class="keyword">new</span> Singleton();</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">return</span> instance;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title">main</span><span class="params">(String[] args)</span> </span>&#123;</span><br><span class="line">            Singleton.getInstance();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p><strong>指令重排分析</strong><br>instance = new Singleton()<br>该方法其实有3步：</p>
+<ol>
+<li>分配内存空间何内存地址</li>
+<li>初始化对象</li>
+<li>将实例指向分配的内存地址</li>
+</ol>
+<p>第二步和第三步没有数据依赖关系，单线程下指令重排不影响执行结果，因此编译器和cpu允许重排优化的行为。即可能出现第三步先于第二步执行，但对象的初始化还没有完成，造成线程安全问题。（<strong>另一个线程在第二步的时候获取到尚未初始化的单例</strong>）</p>
+<h2 id="long和double的非原子协定"><a href="#long和double的非原子协定" class="headerlink" title="long和double的非原子协定"></a>long和double的非原子协定</h2><p><strong>long和dubble的非原子协定</strong>:虚拟机允许没有被volatile修饰的64位数据的读写操作分为两次32位的操作来进行。</p>
+<p>读取到<strong>半个变量</strong>这种情况非常罕见，商用虚拟机几乎都选择把64位数据的读写操作作为原子操作来对待。</p>
+<p><strong>32位虚拟机下，对long变量的访问存在非原子性访问的风险。</strong>，可以使用volatile关键字保证其原子性。</p>
+<h2 id="原子性、可见性与有序性"><a href="#原子性、可见性与有序性" class="headerlink" title="原子性、可见性与有序性"></a>原子性、可见性与有序性</h2><p>volatile保证了<strong>可见性</strong>和<strong>有序性</strong>。</p>
+<p>synchronized三个特性都能保证。</p>
+<h1 id="happen-before原则"><a href="#happen-before原则" class="headerlink" title="happen-before原则"></a>happen-before原则</h1><blockquote>
+<p>先行发生原则是判断数据是否存在竞争、线程是否安全的主要依据。</p>
+</blockquote>
+<ul>
+<li><strong>程序次序规则</strong>（Program Order Rule）：在一个线程内，按照程序代码顺序，书写在前面的操作先行发生于书写在后面的操作。准确地说，应该是控制流顺序而不是程序代码顺序，因为要考虑分支、循环等结构。</li>
+<li><strong>管程锁定规则</strong>（Monitor Lock Rule）：一个unlock操作先行发生于后面对于同一个锁的lock操作。这里必须强调的是同一个锁，而“后面”是指时间上的先后顺序。</li>
+<li><strong>volatile变量规则</strong>（Volatile Variable Rule）：对于一个volatile变量的写操作先行发生于后面对这个变量的读操作，这里的“后面”同样是指时间的先后顺序。</li>
+<li><strong>线程启动规则</strong>（Thread Start Rule）：Thread对象的start()方法先行发生于此线程的每一个动作。</li>
+<li><strong>线程终止规则</strong>（Thread Termination Rule）：线程中的所有操作都先行发生于对此线程的终止检测，我们可以通过Thread.join()方法结束、Thread.isAlive()的返回值等手段检测到线程已经终止执行。</li>
+<li><strong>线程中断规则</strong>（Thread Interrupt Rule）：对线程interrupt()方法的调用先行发生于被中断线程的代码检测到中断事件的发生，可以通过Thread.interrupted()方法检测到是否有中断发生。</li>
+<li><strong>对象终结规则</strong>（Finalizer Rule）：一个对象的初始化完成（构造函数执行结束）先行发生于它的finalize()方法的开始。</li>
+<li><strong>传递性</strong>（Transitivity）：如果操作A先行发生于操作B，操作B先行发生于操作C，那就可以得出操作A先行发生于操作C的结论。</li>
+</ul>
+<h1 id="线程底层实现"><a href="#线程底层实现" class="headerlink" title="线程底层实现"></a>线程底层实现</h1><p>线程实现的方式主要有三种：</p>
+<ol>
+<li>内核线程实现</li>
+<li>使用用户线程实现</li>
+<li>使用用户线程加轻量级进程混合实现</li>
+</ol>
+<p><strong>内核线程实现</strong></p>
+<p>内核线程(KLT)就是直接由操作系统内核支持的线程，这种线程由内核来完成线程切换，内核通过操作调度器(Scheduler)对线程进行调度，并负责将线程的任务映射到各个处理器上。</p>
+<p>程序一般不会直接去使用内核线程，而是去使用内核线程的一种高级接口–<strong>轻量级进程</strong>(LWP)，轻量级进程就是我们通常意义上所讲的线程，每个轻量级进程都由一个内核线程支持。这种轻量级进程与内核进程之间的1：1关系称为<strong>一对一的线程模型</strong>。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_12-3.png" alt=""></p>
+<p>局限性：</p>
+<ol>
+<li>各种线程操作需要进行系统调用，系统调用代价相对较高，需要在用户态和内核态中来回切换。</li>
+<li>每个轻量级进程都需要由一个内核线程的支持，因此轻量级进程需要消耗一定的内核资源，一个系统支持轻量级进程的数量是<strong>有限的</strong>。</li>
+</ol>
+<p><strong>使用用户线程实现</strong><br>广义：一个线程只要不是内核线程，就可以认为是用户线程。</p>
+<p>狭义：用户线程指的是完全建立在用户空间的线程库上，系统内核不能感知到线程存在。用户线程的建立、同步、销毁和调度完全在用户状态中完成，不要内核帮助。</p>
+<p>优点：这种线程不需要切换到内核态，操作非常快速且低消耗，也可以支持规模更大的线程数量，部分高性能数据库中的多线程就是有用户线程实现的。</p>
+<p>缺点：没有内核支持，线程之间调度实现起来非常困难。</p>
+<p>这种进程与用户线程之间1：N的关系称为<strong>一对多线程模型</strong>。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_12-4.png" alt=""></p>
+<p><strong>使用用户线程加轻量级进程混合实现</strong><br>操作系统提供支持的轻量级进程作为用户线程和内核线程之间的桥梁，这样可以使用内核提供的线程调度功能以及处理器映射。</p>
+<p>用户线程和轻量级进程的数量比是不定的，即为N:M的关系，称为<strong>多对多线程模型</strong></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_12-5.png" alt=""></p>
+<h2 id="java线程的实现"><a href="#java线程的实现" class="headerlink" title="java线程的实现"></a>java线程的实现</h2><p>JDK1.2之前，基于称为<strong>绿色线程</strong>的用户线程实现的，1.2中线程模型替换为<strong>基于操作系统原生线程模型实现</strong>。</p>
+<h2 id="线程调度"><a href="#线程调度" class="headerlink" title="线程调度"></a>线程调度</h2><p><strong>线程调度</strong>是指系统为线程分配处理器使用权的过程，主要方式有两种：</p>
+<ol>
+<li><strong>协同式线程调度</strong>:线程把自己工作执行完以后，主动通知系统切换到另一个线程上。(缺点：<strong>线程执行时间不受控制、死循环</strong>)</li>
+<li><strong>抢占式线程调度</strong>：每个线程由系统来分配执行时间。</li>
+</ol>
+<h2 id="线程优先级"><a href="#线程优先级" class="headerlink" title="线程优先级"></a>线程优先级</h2><p>Java有10个优先级，两个线程同时处于ready状态时，优先级越高越容易被系统选择执行(<strong>不同操作系统的线程优先级定义不一样，和java线程优先级的映射关系不同，建议只用默认三个 MIN，NORM，MAX。</strong>)</p>
+<h2 id="协程"><a href="#协程" class="headerlink" title="协程"></a>协程</h2><p>//todo</p>
+<h1 id="线程安全"><a href="#线程安全" class="headerlink" title="线程安全"></a>线程安全</h1><p><strong>当多个线程访问一个对象时，如果不用考虑这些线程在运行时环境下的调度和交替执行，也不需要进行额外同步，或者在调用方进行任何其他的协调操作，调用这个对象的行为都可以获得正确的结果，那这个对象时线程安全的。</strong></p>
+<p>我们可以将java语言中各种操作的共享数据分为以下五类：</p>
+<ol>
+<li><strong>不可变</strong>：final </li>
+<li><strong>绝对线程安全</strong>：满足上面定义，Vector也做不到绝对线程安全(两个线程去，一个去get 一个去remove)</li>
+<li><strong>相对线程安全</strong>：通常意义上的线程安全，保证对这个对象单独的操作是线程安全的。对于特定顺序的连续调用需要我们额外同步。（例如Vector HashTable）</li>
+<li><strong>线程兼容</strong>：对象本身不是线程安全的，可以通过在调用端正确地使用同步手段来保证对象在并发环境中可以安全的使用。</li>
+<li><strong>线程对立</strong>：无论调用段是否采取了同步措施，都无法在多线程环境中并发使用的代码。(很少出现)</li>
+</ol>
+<h2 id="线程安全的实现方法"><a href="#线程安全的实现方法" class="headerlink" title="线程安全的实现方法"></a>线程安全的实现方法</h2><ol>
+<li><strong>互斥同步</strong>:互斥同步最主要的问题是进行线程阻塞和换下所带来的性能问题，因此也被称为<strong>阻塞同步</strong>,<strong>悲观锁</strong>。<ul>
+<li><strong>synchronized</strong>(非公平 可重入)</li>
+<li><strong>ReentrantLock</strong><br>synchronized与ReentrantLock主要区别是：<br>ReentrantLock更加灵活，<strong>等待可中断</strong>，<strong>可实现公平锁</strong>，以及<strong>锁可以绑定多个条件</strong></li>
+</ul>
+</li>
+</ol>
+<p>互斥同步的缺点是：如果升级到重量级锁，需要操作系统进行系统调用，系统调用则需要在用户态和内核态之间切换，代价较高，因此才会有乐观锁。</p>
+<ol start="2">
+<li><strong>非阻塞同步(乐观并发策略)</strong>：如果没有其他线程争用共享数据，直接操作成功；如果有其他线程争用共享数据，产生了冲突，就会采取其他补偿措施(常见的补偿措施就是不断重试，直到成功为止)。不会将线程挂起。避免在用户态和内核态之间频繁切换。(CAS就是乐观并发策略)</li>
+<li>无同步方案：<ul>
+<li><strong>可重入代码</strong>：不依赖全局变量、公用资源的代码。</li>
+<li><strong>线程本地存储</strong>：如果一段代码中所需要的数据必须与其他代码共享，可以看下共享数据的代码是否能保证在一个线程里面执行。</li>
+</ul>
+</li>
+</ol>
+<h2 id="CAS"><a href="#CAS" class="headerlink" title="CAS"></a>CAS</h2><p>CAS算法涉及到三个操作数</p>
+<ul>
+<li>需要读写的内存值 V</li>
+<li>进行比较的值 A</li>
+<li>拟写入的新值 B</li>
+</ul>
+<p>当且仅当 V 的值等于 A时，CAS通过原子方式用新值B来更新V的值，否则不会执行任何操作（比较和替换是一个原子操作）。一般情况下是一个自旋操作，即不断的重试。</p>
+<ol>
+<li><p><strong>ABA 问题</strong><br>如果一个变量V初次读取的时候是A值，并且在准备赋值的时候检查到它仍然是A值，那我们就能说明它的值没有被其他线程修改过了吗？很明显是不能的，因为在这段时间它的值可能被改为其他值，然后又改回A，那CAS操作就会误认为它从来没有被修改过。这个问题被称为CAS操作的 “ABA”问题。</p>
+<blockquote>
+<p>解决方案：递增版本号。</p>
+</blockquote>
+</li>
+<li><p><strong>循环时间长开销大</strong><br>自旋CAS（也就是不成功就一直循环执行直到成功）如果长时间不成功，会给CPU带来非常大的执行开销。</p>
+</li>
+</ol>
+<h1 id="synchronized实现原理和应用"><a href="#synchronized实现原理和应用" class="headerlink" title="synchronized实现原理和应用"></a>synchronized实现原理和应用</h1><h2 id="对象头"><a href="#对象头" class="headerlink" title="对象头"></a>对象头</h2><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_sy-1.png" alt=""></p>
+<h2 id="锁升级流程"><a href="#锁升级流程" class="headerlink" title="锁升级流程"></a>锁升级流程</h2><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_sy-4.png" alt=""></p>
+<p>偏向锁 -&gt; 轻量级锁 -&gt; 重量级锁</p>
+<h2 id="偏向锁-加锁-解锁过程"><a href="#偏向锁-加锁-解锁过程" class="headerlink" title="偏向锁(加锁/解锁过程)"></a>偏向锁(加锁/解锁过程)</h2><p>偏向锁是指一段同步代码一直被一个线程所访问，那么该线程会自动获取锁，降低获取锁的代价。</p>
+<p>在大多数情况下，锁总是由同一线程多次获得，不存在多线程竞争，所以出现了偏向锁。其目标就是在只有一个线程执行同步代码块时能够提高性能。</p>
+<p>当一个线程访问同步代码块并获取锁时，会在Mark Word里存储锁偏向的线程ID。在线程进入和退出同步块时不再通过CAS操作来加锁和解锁，而是检测Mark Word里是否存储着指向当前线程的偏向锁。引入偏向锁是为了在无多线程竞争的情况下尽量减少不必要的轻量级锁执行路径，因为轻量级锁的获取及释放依赖多次CAS原子指令，而偏向锁只需要在置换ThreadID的时候依赖一次CAS原子指令即可。</p>
+<p>偏向锁只有遇到其他线程尝试竞争偏向锁时，<strong>持有偏向锁的线程才会释放锁，线程不会主动释放偏向锁</strong>。</p>
+<p><strong>偏向锁的撤销，需要等待全局安全点</strong>（在这个时间点上没有字节码正在执行），它会首先暂停拥有偏向锁的线程，判断锁对象是否处于被锁定状态。撤销偏向锁后恢复到无锁（标志位为“01”）或轻量级锁（标志位为“00”）的状态。</p>
+<p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_sy_05.png" alt=""></p>
+<p><strong>进入了偏向锁模式后，原来的hashCode怎么办呢？</strong></p>
+<ol>
+<li>当一个对象计算过一次一致性哈希码后，他就无法再进入偏向锁状态了。</li>
+<li>当一个对象处于偏向锁状态，有收到一个需要计算一致性哈希码的请求，它会立刻撤销偏向状态并膨胀为重量级锁。</li>
+</ol>
+<h2 id="轻量级锁-加锁-解锁过程"><a href="#轻量级锁-加锁-解锁过程" class="headerlink" title="轻量级锁(加锁/解锁过程)"></a>轻量级锁(加锁/解锁过程)</h2><p>JVM的开发者发现在很多情况下，在Java程序运行时，同步块中的代码都是不存在竞争的，不同的线程交替的执行同步块中的代码。这种情况下，用重量级锁是没必要的。因此JVM引入了轻量级锁的概念。</p>
+<h2 id="加锁过程"><a href="#加锁过程" class="headerlink" title="加锁过程"></a>加锁过程</h2><ol>
+<li>代码进入同步块的时候，如果此时同步的对象没有被锁定(锁标志位为01状态)，虚拟机首先将在当前线程的帧栈中简历一个名为锁记录(Lock Record)的空间，用于存储对象目前的Mark Word的拷贝(即 Displaced Mark Word)。</li>
+<li>然后虚拟机将使用CAS操作尝试将对象的Mark Word更新为指向Lock Record的指针。如果这个更新操作成功了，那么这个线程将获得该对象的锁，并且将对象Mark Word的锁标志位变为00。</li>
+<li>如果更新失败了，虚拟机会先检查Mark Word是否指向当前线程的帧栈(<strong>可重入逻辑</strong>)，如果不，说明锁对象已经被其他线程抢占了，轻量级锁不在有效，将会升级成<strong>重量级锁</strong>，Mark Word中的锁标志变为10，后面等待锁的线程也进入阻塞状态。</li>
+</ol>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_sy-2.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/jvm/jvm_sy-3.png" alt=""></p>
+<h3 id="解锁过程"><a href="#解锁过程" class="headerlink" title="解锁过程"></a>解锁过程</h3><ol>
+<li>如果对象的Mark Word仍然指向线程的锁记录，那就用CAS操作把对象当前的Mark Word和线程中复制的Displaced Mark Word交换回来。替换成功，正常解锁。</li>
+<li>替换失败，说明有其他线程尝试获取过该锁，此时应是重量级锁了，释放锁的同时，唤醒被挂起的线程。</li>
+</ol>
+<h2 id="自旋锁和自适应自旋"><a href="#自旋锁和自适应自旋" class="headerlink" title="自旋锁和自适应自旋"></a>自旋锁和自适应自旋</h2><p>自旋锁：为了让线程等待，我们只需要让线程执行一个忙循环(自旋)。<br>缺点：虽然避免了线程切换的开销，但是需要占用处理器时间，如果锁被占用时间很短，自旋效果很好，相反如果锁被占用的时间很长，自旋的线程会带来性能上的浪费。</p>
+<p>自适应自旋：<strong>自旋的时间不在固定，由前一次在同一个锁上的自旋时间及锁的拥有者状态决定</strong>。如果在同一个对象上，自旋等待刚刚成功获得锁，并且持有锁的线程正在运行中，虚拟机会认为这次自旋也很有可能获取到锁，会自旋一定次数；如果一个锁很少获取成功，线程会被直接挂起，省略掉自旋过程。</p>
+<h2 id="锁消除"><a href="#锁消除" class="headerlink" title="锁消除"></a>锁消除</h2><p>虚拟机及时编译器在运行时，对一些代码上要求同步，但是被检测到不可能存在共享数据竞争的锁进行消除。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">public String concatString(String s1,String s2,String s3)&#123;</span><br><span class="line">	StringBuffer sb = new StringBuffer();</span><br><span class="line">	sb.append(s1);</span><br><span class="line">	sb.append(s2);</span><br><span class="line">	sb.append(s3);</span><br><span class="line">	return sb.toString();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>经过逃逸分析后，sb的所有引用都不会刀一刀concatString()方法之外，其他线程无法访问到它，所以这里虽然有锁，但是可以被安全的消除掉。在解释执行时这里仍然会加锁，但是经过服务器编译器的即时编译之后，这段代码会忽略掉所有的同步措施。</p>
+<h2 id="锁粗化"><a href="#锁粗化" class="headerlink" title="锁粗化"></a>锁粗化</h2><p>我们编写代码的时候，如果一系列的连续操作都对同一个对象反复加锁和解锁，甚至加锁操作是出现在循环体中的，那即是没有线程竞争，频繁地进行互斥同步操作也会导致不必要的性能损耗。<strong>虚拟机会将锁扩展到整个代码段，这就是锁粗化。</strong></p>
+<h1 id="参考文章"><a href="#参考文章" class="headerlink" title="参考文章"></a>参考文章</h1><p><a href="https://tech.meituan.com/2018/11/15/java-lock.html" target="_blank" rel="noopener">不可不说的Java“锁”事</a></p>
+<p><a href="https://www.itcodemonkey.com/article/6726.html" target="_blank" rel="noopener">深入Synchronized底层实现原理</a></p>
+<p><a href="https://github.com/farmerjohngit/myblog/issues/12" target="_blank" rel="noopener">死磕Synchronized底层实现</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/jvm/" rel="tag"># jvm</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/10/04/jvm/jvm05_%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%B1%BB%E5%8A%A0%E8%BD%BD%E6%9C%BA%E5%88%B6/" rel="prev" title="jvm05_虚拟机类加载机制">
+      <i class="fa fa-chevron-left"></i> jvm05_虚拟机类加载机制
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/11/01/java%E5%B9%B6%E5%8F%91/java%E5%B9%B6%E5%8F%9101_%E5%9F%BA%E7%A1%80%E6%A6%82%E5%BF%B5/" rel="next" title="java并发01_基础概念">
+      java并发01_基础概念 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#java内存模型"><span class="nav-number">1.</span> <span class="nav-text">java内存模型</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#volatile关键字"><span class="nav-number">2.</span> <span class="nav-text">volatile关键字</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#long和double的非原子协定"><span class="nav-number">2.1.</span> <span class="nav-text">long和double的非原子协定</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#原子性、可见性与有序性"><span class="nav-number">2.2.</span> <span class="nav-text">原子性、可见性与有序性</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#happen-before原则"><span class="nav-number">3.</span> <span class="nav-text">happen-before原则</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#线程底层实现"><span class="nav-number">4.</span> <span class="nav-text">线程底层实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#java线程的实现"><span class="nav-number">4.1.</span> <span class="nav-text">java线程的实现</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程调度"><span class="nav-number">4.2.</span> <span class="nav-text">线程调度</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#线程优先级"><span class="nav-number">4.3.</span> <span class="nav-text">线程优先级</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#协程"><span class="nav-number">4.4.</span> <span class="nav-text">协程</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#线程安全"><span class="nav-number">5.</span> <span class="nav-text">线程安全</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#线程安全的实现方法"><span class="nav-number">5.1.</span> <span class="nav-text">线程安全的实现方法</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CAS"><span class="nav-number">5.2.</span> <span class="nav-text">CAS</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#synchronized实现原理和应用"><span class="nav-number">6.</span> <span class="nav-text">synchronized实现原理和应用</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#对象头"><span class="nav-number">6.1.</span> <span class="nav-text">对象头</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#锁升级流程"><span class="nav-number">6.2.</span> <span class="nav-text">锁升级流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#偏向锁-加锁-解锁过程"><span class="nav-number">6.3.</span> <span class="nav-text">偏向锁(加锁/解锁过程)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#轻量级锁-加锁-解锁过程"><span class="nav-number">6.4.</span> <span class="nav-text">轻量级锁(加锁/解锁过程)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#加锁过程"><span class="nav-number">6.5.</span> <span class="nav-text">加锁过程</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#解锁过程"><span class="nav-number">6.5.1.</span> <span class="nav-text">解锁过程</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#自旋锁和自适应自旋"><span class="nav-number">6.6.</span> <span class="nav-text">自旋锁和自适应自旋</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#锁消除"><span class="nav-number">6.7.</span> <span class="nav-text">锁消除</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#锁粗化"><span class="nav-number">6.8.</span> <span class="nav-text">锁粗化</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考文章"><span class="nav-number">7.</span> <span class="nav-text">参考文章</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

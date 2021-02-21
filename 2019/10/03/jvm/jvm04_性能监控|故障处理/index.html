@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="JDK的命令工具jps:虚拟机进程状况工具命令格式：  jps [options] [hostid]  jps 工具主要选项    选项 作用    -q 只输出LVMID 省略主类名称   -m 输出虚拟机经常启动时传递给主类main() 函数的参数   -l 输出主类的全名   -v 输出虚拟机进程启动时JVM参数    jps还可以通过RMI协议查询开启了RMI服务的远程虚拟机进程状态。ho">
+<meta name="keywords" content="jvm">
+<meta property="og:type" content="article">
+<meta property="og:title" content="jvm04_性能监控|故障处理">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;10&#x2F;03&#x2F;jvm&#x2F;jvm04_%E6%80%A7%E8%83%BD%E7%9B%91%E6%8E%A7|%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="JDK的命令工具jps:虚拟机进程状况工具命令格式：  jps [options] [hostid]  jps 工具主要选项    选项 作用    -q 只输出LVMID 省略主类名称   -m 输出虚拟机经常启动时传递给主类main() 函数的参数   -l 输出主类的全名   -v 输出虚拟机进程启动时JVM参数    jps还可以通过RMI协议查询开启了RMI服务的远程虚拟机进程状态。ho">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:updated_time" content="2020-08-18T16:23:04.000Z">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="http://yoursite.com/2019/10/03/jvm/jvm04_%E6%80%A7%E8%83%BD%E7%9B%91%E6%8E%A7|%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>jvm04_性能监控|故障处理 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/10/03/jvm/jvm04_%E6%80%A7%E8%83%BD%E7%9B%91%E6%8E%A7|%E6%95%85%E9%9A%9C%E5%A4%84%E7%90%86/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          jvm04_性能监控|故障处理
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-10-03 20:46:25" itemprop="dateCreated datePublished" datetime="2019-10-03T20:46:25+08:00">2019-10-03</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-08-19 00:23:04" itemprop="dateModified" datetime="2020-08-19T00:23:04+08:00">2020-08-19</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/jvm/" itemprop="url" rel="index"><span itemprop="name">jvm</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="JDK的命令工具"><a href="#JDK的命令工具" class="headerlink" title="JDK的命令工具"></a>JDK的命令工具</h1><h2 id="jps-虚拟机进程状况工具"><a href="#jps-虚拟机进程状况工具" class="headerlink" title="jps:虚拟机进程状况工具"></a>jps:虚拟机进程状况工具</h2><p>命令格式：</p>
+<blockquote>
+<p>jps [options] [hostid]</p>
+</blockquote>
+<p>jps 工具主要选项</p>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-q</td>
+<td>只输出LVMID 省略主类名称</td>
+</tr>
+<tr>
+<td>-m</td>
+<td>输出虚拟机经常启动时传递给主类main() 函数的参数</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>输出主类的全名</td>
+</tr>
+<tr>
+<td>-v</td>
+<td>输出虚拟机进程启动时JVM参数</td>
+</tr>
+</tbody></table>
+<p> jps还可以通过RMI协议查询开启了RMI服务的远程虚拟机进程状态。hostid为RMI注册表中注册的主机名。</p>
+ <a id="more"></a>
+<h2 id="jstat-虚拟机统计信息监视工具"><a href="#jstat-虚拟机统计信息监视工具" class="headerlink" title="jstat:虚拟机统计信息监视工具"></a>jstat:虚拟机统计信息监视工具</h2><p> 主要用来查看内存使用情况，和GC情况。</p>
+<p> jstat命令格式为：</p>
+<blockquote>
+<p>jstat [opention vimid [ interval [ s|ms ] ] [count] ]</p>
+</blockquote>
+<p>interval和count参数代表查询间隔和次数，如果省略表示只查一次。如果需要每个250毫秒查询一次进程2764垃圾收集情况，一共查询20次：</p>
+<blockquote>
+<p>jstat -gc 2764 250 20</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-class</td>
+<td>监视类装载、卸载数量、总空间以及类装载所消耗的时间</td>
+</tr>
+<tr>
+<td>-gc</td>
+<td>监视java堆状况，包括Eden区、两个Survivor区、老年代、永久代等的容量、医用空间、GC时间合计等信息</td>
+</tr>
+<tr>
+<td>-gccapacity</td>
+<td>监视内容与-gc基本相同，但输出主要关注Java堆各个区域使用到的最大、最小空间</td>
+</tr>
+<tr>
+<td>-<strong>gcutil</strong></td>
+<td>监视内容与-gc基本相同，但输出主要关注已使用空间在总空间的百分比。</td>
+</tr>
+<tr>
+<td>-<strong>gccause</strong></td>
+<td>与gcutil功能一样，但是会二外输出导致上一次GC产生的原因</td>
+</tr>
+<tr>
+<td>-<strong>gcnew</strong></td>
+<td>监视新生代GC状况</td>
+</tr>
+<tr>
+<td>-gcnewcapacity</td>
+<td>功能与gcnew相同，输出主要关使用到的最大、最小空间</td>
+</tr>
+<tr>
+<td>-<strong>gcold</strong></td>
+<td>监视老年代GC状况</td>
+</tr>
+<tr>
+<td>-gcoldcapacity</td>
+<td>功能与gcold相同，输出主要关使用到的最大、最小空间</td>
+</tr>
+<tr>
+<td>-gcpermcapacity</td>
+<td>输出永久代用到的最大、最小空间</td>
+</tr>
+<tr>
+<td>-compiler</td>
+<td>输出JIT编译期编译过的方法、耗时等信息</td>
+</tr>
+<tr>
+<td>-printcompilation</td>
+<td>输出已经被JIT编译的方法</td>
+</tr>
+</tbody></table>
+<h2 id="jmap：java内存映象工具"><a href="#jmap：java内存映象工具" class="headerlink" title="jmap：java内存映象工具"></a>jmap：java内存映象工具</h2><p>jmap主要用于生成<strong>堆转储快照</strong>(heapdump)。<br>获取java堆转储快照的方式有三种</p>
+<ol>
+<li>-XX:+HeapDumpOnOutOfMemoryError :虚拟机出现OOM异常后自动生成dump文件</li>
+<li>-XX:+HeapDumpOnCtrlBreak : 使用Ctel+break键让虚拟机生成dump文件</li>
+<li><strong>jmap</strong></li>
+</ol>
+<p>jmap命令格式：</p>
+<blockquote>
+<p>jmap [option] vmid</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-<strong>dump</strong></td>
+<td>生成堆转储快照。格式为 -dump:[live,]format=b,file=&lt;filename&gt;</td>
+</tr>
+<tr>
+<td>-finalizerinfo</td>
+<td>显示在F-Queue中等待Finalizer线程执行finalize方法的对象。(只在Linux、Solaris平台下有效)</td>
+</tr>
+<tr>
+<td>-histo</td>
+<td>显示堆中对象统计信息，包括类、实例数量、合计容量</td>
+</tr>
+<tr>
+<td>-permstat</td>
+<td>以ClassLoader为口径显示永久代内存状态。(只在Linux、Solaris平台下有效)</td>
+</tr>
+<tr>
+<td>-<strong>F</strong></td>
+<td>当虚拟机堆-dump命令没有响应时，可用和这个选项强制生成dump快照。(只在Linux、Solaris平台下有效)</td>
+</tr>
+</tbody></table>
+<h2 id="jstack：Java堆栈跟踪工具"><a href="#jstack：Java堆栈跟踪工具" class="headerlink" title="jstack：Java堆栈跟踪工具"></a>jstack：Java堆栈跟踪工具</h2><p> jstack命令用于生成虚拟机当前时刻的线程快照(一般称为threaddump或者jvavacore文件)。</p>
+<p> 主要目的是定位线程出现长时间停顿的原因，如<strong>线程间死锁</strong>、<strong>死循环</strong>、<strong>请求外部资源导致长时间等待</strong>等都是导致线程长时间停顿的常见原因。</p>
+<p> jstack命令格式：</p>
+<blockquote>
+<p>jstack [option] vmid</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>选项</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-F</td>
+<td>正常输出请求不被响应时，强制输出线程堆栈。</td>
+</tr>
+<tr>
+<td>-l</td>
+<td>除堆栈外，显示关于锁的附加信息</td>
+</tr>
+<tr>
+<td>-m</td>
+<td>如果调用到本地方法的话，可以显示C/C++的堆栈</td>
+</tr>
+</tbody></table>
+<h2 id="jhat：虚拟机堆转储快照分析工具"><a href="#jhat：虚拟机堆转储快照分析工具" class="headerlink" title="jhat：虚拟机堆转储快照分析工具"></a>jhat：虚拟机堆转储快照分析工具</h2><p> 一般不用和这个，直接用visualVM</p>
+<h2 id="VisualVM-多合一故障处理工具"><a href="#VisualVM-多合一故障处理工具" class="headerlink" title="VisualVM:多合一故障处理工具"></a>VisualVM:多合一故障处理工具</h2><p>即jvisualvm,用于分析dump文件等。</p>
+<h1 id="第三方排查工具"><a href="#第三方排查工具" class="headerlink" title="第三方排查工具"></a>第三方排查工具</h1><h2 id="Arthas"><a href="#Arthas" class="headerlink" title="Arthas"></a>Arthas</h2><p>Arthas 是Alibaba开源的Java诊断工具，功能比较强大，支持直接反编译查看代码。</p>
+<p><a href="https://alibaba.github.io/arthas/" target="_blank" rel="noopener">https://alibaba.github.io/arthas/</a></p>
+<h1 id="Linux常见故障排查命令"><a href="#Linux常见故障排查命令" class="headerlink" title="Linux常见故障排查命令"></a>Linux常见故障排查命令</h1><h2 id="netstat"><a href="#netstat" class="headerlink" title="netstat"></a>netstat</h2><p>找出运行在指定端口的进程</p>
+<blockquote>
+<p>netstat -tunlp | grep 80</p>
+<p>-t或–tcp 显示TCP传输协议的连线状况。<br>-u或–udp 显示UDP传输协议的连线状况。<br>-n或–numeric 直接使用IP地址，而不通过域名服务器。<br>-l或–listening 显示监控中的服务器的Socket。<br>-p或–programs 显示正在使用Socket的程序识别码和程序名称。</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">[root@kudu4 admin]# netstat -tunlp | grep 80</span><br><span class="line">tcp        0      0 0.0.0.0:80              0.0.0.0:*               LISTEN      7313/nginx: worker</span><br><span class="line">tcp        0      0 0.0.0.0:8080            0.0.0.0:*               LISTEN      31017/java</span><br><span class="line">tcp        0      0 0.0.0.0:8084            0.0.0.0:*               LISTEN      5449/java</span><br><span class="line">tcp        0      0 0.0.0.0:8090            0.0.0.0:*               LISTEN      25025/java</span><br></pre></td></tr></table></figure>
+
+<p><a href="https://www.cnblogs.com/peida/archive/2013/03/08/2949194.html" target="_blank" rel="noopener">每天一个linux命令（56）：netstat命令</a></p>
+<h2 id="磁盘管理"><a href="#磁盘管理" class="headerlink" title="磁盘管理"></a>磁盘管理</h2><h3 id="df"><a href="#df" class="headerlink" title="df"></a>df</h3><blockquote>
+<p>df -h </p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[root@kudu4 admin]# df -h</span><br><span class="line">文件系统                 容量  已用  可用 已用% 挂载点</span><br><span class="line">/dev/mapper/centos-root   36G   30G  5.5G   85% /</span><br><span class="line">devtmpfs                 7.8G     0  7.8G    0% /dev</span><br><span class="line">tmpfs                    7.8G     0  7.8G    0% /dev/shm</span><br><span class="line">tmpfs                    7.8G   25M  7.8G    1% /run</span><br><span class="line">tmpfs                    7.8G     0  7.8G    0% /sys/fs/cgroup</span><br><span class="line">/dev/vdb1                 99G  5.0G   89G    6% /data</span><br><span class="line">/dev/vda1               1014M  145M  870M   15% /boot</span><br><span class="line">tmpfs                    1.6G     0  1.6G    0% /run/user/0</span><br><span class="line">tmpfs                    1.6G     0  1.6G    0% /run/user/1000</span><br></pre></td></tr></table></figure>
+
+<h3 id="du"><a href="#du" class="headerlink" title="du"></a>du</h3><p>统计目录（或文件）所占磁盘空间的大小。该命令的功能是逐级进入指定目录的每一个子目录并显示该目录占用文件系统数据块（1024字节）的情况。若没有给出指定目录，则对当前目录进行统计。</p>
+<blockquote>
+<p>du -h ./ -d 1</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">[root@kudu4 admin]# du -h ./ -d 1</span><br><span class="line">58M		./.arthas</span><br><span class="line">4.0K	./.oracle_jre_usage</span><br><span class="line">0		./.pki</span><br><span class="line">4.0K	./.vim</span><br><span class="line">16K		./.ssh</span><br><span class="line">7.2G	./app</span><br><span class="line">900M	./temp</span><br><span class="line">620M	./home</span><br><span class="line">92K		./logs</span><br><span class="line">8.8G	./</span><br></pre></td></tr></table></figure>
+
+<h2 id="free"><a href="#free" class="headerlink" title="free"></a>free</h2><p>free命令可以显示Linux系统中空闲的、已用的物理内存及swap内存,及被内核使用的buffer。在Linux系统监控的工具中，free命令是最经常使用的命令之一。</p>
+<blockquote>
+<p>free -h</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">[root@kudu4 admin]# free -h</span><br><span class="line">              total        used        free      shared  buff/cache   available</span><br><span class="line">Mem:            15G        9.2G        1.6G         23M        4.8G        5.9G</span><br><span class="line">Swap:          3.9G        860M        3.0G</span><br></pre></td></tr></table></figure>
+
+<p><strong>第一列</strong>  </p>
+<p>Mem 内存的使用信息<br>Swap 交换空间的使用信息</p>
+<p><strong>第一行</strong><br>total 系统总的可用物理内存大小<br>used 已被使用的物理内存大小<br>free 还有多少物理内存可用<br>shared 被共享使用的物理内存大小<br>buff/cache 被 buffer 和 cache 使用的物理内存大小<br>available 还可以被 应用程序 使用的物理内存大小  </p>
+<p><strong>free 与 available 的区别</strong><br>free 是真正尚未被使用的物理内存数量。</p>
+<p>available 是应用程序认为可用内存数量，available = free + buffer + cache (注：只是大概的计算方法)</p>
+<p>Linux 为了提升读写性能，会消耗一部分内存资源缓存磁盘数据，对于内核来说，buffer 和 cache 其实都属于已经被使用的内存。但当应用程序申请内存时，如果 free 内存不够，内核就会回收 buffer 和 cache 的内存来满足应用程序的请求。</p>
+<h2 id="TOP"><a href="#TOP" class="headerlink" title="TOP"></a>TOP</h2><p>top命令是Linux下常用的性能分析工具，能够实时显示系统中各个进程的资源占用状况，类似于Windows的任务管理器。</p>
+<blockquote>
+<p>top </p>
+</blockquote>
+<h2 id="PS"><a href="#PS" class="headerlink" title="PS"></a>PS</h2><p>Linux中的ps命令是Process Status的缩写。ps命令用来列出系统中当前运行的那些进程。ps命令列出的是当前那些进程的快照，就是执行ps命令的那个时刻的那些进程，如果想要动态的显示进程信息，就可以使用top命令。</p>
+<blockquote>
+<p>ps -ef | grep 进程号</p>
+</blockquote>
+<h2 id="tail"><a href="#tail" class="headerlink" title="tail"></a>tail</h2><p>tail 命令从指定点开始将文件写到标准输出.使用tail命令的-f选项可以方便的查阅正在改变的日志文件,tail -f filename会把filename里最尾部的内容显示在屏幕上,并且不但刷新,使你看到最新的文件内容. </p>
+<blockquote>
+<p>tail -fn 2000 aa.log</p>
+</blockquote>
+<p>可以结合grep命令一起使用</p>
+<p><a href="https://blog.csdn.net/zpcandzhj/article/details/72859152" target="_blank" rel="noopener">常用Linux日志查看命令</a></p>
+<h2 id="iostat"><a href="#iostat" class="headerlink" title="iostat"></a>iostat</h2><p>Linux系统中的 iostat是I/O statistics（输入/输出统计）的缩写，iostat工具将对系统的磁盘操作活动进行监视。它的特点是汇报磁盘活动统计情况，同时也会汇报出CPU使用情况。同vmstat一样，iostat也有一个弱点，就是它不能对某个进程进行深入分析，仅对系统的整体情况进行分析。iostat属于sysstat软件包。可以用yum install sysstat 直接安装。</p>
+<p><a href="https://www.cnblogs.com/peida/archive/2012/12/28/2837345.html" target="_blank" rel="noopener">每天一个linux命令（47）：iostat命令</a></p>
+<h1 id="线上问题定位"><a href="#线上问题定位" class="headerlink" title="线上问题定位"></a>线上问题定位</h1><h2 id="CPU使用率过高-java进程，定位到哪一段代码"><a href="#CPU使用率过高-java进程，定位到哪一段代码" class="headerlink" title="CPU使用率过高(java进程，定位到哪一段代码)"></a>CPU使用率过高(java进程，定位到哪一段代码)</h2><ol>
+<li><p>在Lmⅸ命合行下使用TOP命查看每个进程的情况</p>
+</li>
+<li><p>再使用top的交互命令数字1查看每个CPU的性能数据。(如果<br>这里显示CPU利用率100%,则很有可能程序里写了一个死循环。)</p>
+</li>
+<li><p>使用top的交互命令H查看每个线程的性能信息。</p>
+<ul>
+<li>某个线程CPU利用率一直100%,则说明是这个线程有可能有死循环,那么请记住这个PID。(也可能是Full GC造成，jstat查看GC情况)</li>
+<li>某个线程一直在TOP10的位置,这说明这个线程可能有性能问题</li>
+<li>CPU利用率高的几个线程在不停变化,说明并不是由某一个线程导致CPU偏高。</li>
+</ul>
+</li>
+<li><p>jstack dump线程信息，看下是哪个线程、执行哪一行代码造成CPU利用率高。</p>
+</li>
+</ol>
+<p>dump出来的线程ID(nid)是十六进制的,而我们用TOP命命看到的线程ID是十进制的,所以要用pin倫命合转换一下进制。然后用十六进制的ID去dump里找到对应的线程。</p>
+<h2 id="OOM异常排查-经常Full-GC"><a href="#OOM异常排查-经常Full-GC" class="headerlink" title="OOM异常排查(经常Full GC)"></a>OOM异常排查(经常Full GC)</h2><p>用jmap dump jvm堆数据，通过jvisualvm进行分析，看是哪一个类创建过多，一直追溯到上游。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/jvm/" rel="tag"># jvm</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/10/02/jvm/jvm03_CMS&G1%E5%9B%9E%E6%94%B6%E6%B5%81%E7%A8%8B/" rel="prev" title="jvm03_CMS&G1回收流程">
+      <i class="fa fa-chevron-left"></i> jvm03_CMS&G1回收流程
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/10/04/jvm/jvm05_%E8%99%9A%E6%8B%9F%E6%9C%BA%E7%B1%BB%E5%8A%A0%E8%BD%BD%E6%9C%BA%E5%88%B6/" rel="next" title="jvm05_虚拟机类加载机制">
+      jvm05_虚拟机类加载机制 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#JDK的命令工具"><span class="nav-number">1.</span> <span class="nav-text">JDK的命令工具</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#jps-虚拟机进程状况工具"><span class="nav-number">1.1.</span> <span class="nav-text">jps:虚拟机进程状况工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#jstat-虚拟机统计信息监视工具"><span class="nav-number">1.2.</span> <span class="nav-text">jstat:虚拟机统计信息监视工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#jmap：java内存映象工具"><span class="nav-number">1.3.</span> <span class="nav-text">jmap：java内存映象工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#jstack：Java堆栈跟踪工具"><span class="nav-number">1.4.</span> <span class="nav-text">jstack：Java堆栈跟踪工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#jhat：虚拟机堆转储快照分析工具"><span class="nav-number">1.5.</span> <span class="nav-text">jhat：虚拟机堆转储快照分析工具</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#VisualVM-多合一故障处理工具"><span class="nav-number">1.6.</span> <span class="nav-text">VisualVM:多合一故障处理工具</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#第三方排查工具"><span class="nav-number">2.</span> <span class="nav-text">第三方排查工具</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#Arthas"><span class="nav-number">2.1.</span> <span class="nav-text">Arthas</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#Linux常见故障排查命令"><span class="nav-number">3.</span> <span class="nav-text">Linux常见故障排查命令</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#netstat"><span class="nav-number">3.1.</span> <span class="nav-text">netstat</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#磁盘管理"><span class="nav-number">3.2.</span> <span class="nav-text">磁盘管理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#df"><span class="nav-number">3.2.1.</span> <span class="nav-text">df</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#du"><span class="nav-number">3.2.2.</span> <span class="nav-text">du</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#free"><span class="nav-number">3.3.</span> <span class="nav-text">free</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#TOP"><span class="nav-number">3.4.</span> <span class="nav-text">TOP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#PS"><span class="nav-number">3.5.</span> <span class="nav-text">PS</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#tail"><span class="nav-number">3.6.</span> <span class="nav-text">tail</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#iostat"><span class="nav-number">3.7.</span> <span class="nav-text">iostat</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#线上问题定位"><span class="nav-number">4.</span> <span class="nav-text">线上问题定位</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#CPU使用率过高-java进程，定位到哪一段代码"><span class="nav-number">4.1.</span> <span class="nav-text">CPU使用率过高(java进程，定位到哪一段代码)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#OOM异常排查-经常Full-GC"><span class="nav-number">4.2.</span> <span class="nav-text">OOM异常排查(经常Full GC)</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

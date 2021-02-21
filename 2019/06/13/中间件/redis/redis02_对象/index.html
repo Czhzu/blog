@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="redis对象概述redis基于简单动态字符串、双端链表等基本数据结构，创建了一个对象系统。包含字符串对象，列表对象，哈希对象，集合对象，有序集合对象。 Redis的对象系统还实现了基于引用计数技术的内存回收机制">
+<meta name="keywords" content="redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="redis02_对象">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;06&#x2F;13&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;redis&#x2F;redis02_%E5%AF%B9%E8%B1%A1&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="redis对象概述redis基于简单动态字符串、双端链表等基本数据结构，创建了一个对象系统。包含字符串对象，列表对象，哈希对象，集合对象，有序集合对象。 Redis的对象系统还实现了基于引用计数技术的内存回收机制">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_tb_8-1.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_tb_8-2.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_tb_8-4.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_tb_8-3.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_tb_8-5.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_8-4.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_8-5.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_8-6.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_8-7.png">
+<meta property="og:updated_time" content="2020-06-03T03:45:46.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_tb_8-1.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/06/13/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis02_%E5%AF%B9%E8%B1%A1/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>redis02_对象 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/13/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis02_%E5%AF%B9%E8%B1%A1/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          redis02_对象
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-06-13 20:00:00" itemprop="dateCreated datePublished" datetime="2019-06-13T20:00:00+08:00">2019-06-13</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-03 11:45:46" itemprop="dateModified" datetime="2020-06-03T11:45:46+08:00">2020-06-03</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="redis对象"><a href="#redis对象" class="headerlink" title="redis对象"></a>redis对象</h1><h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>redis基于简单动态字符串、双端链表等基本数据结构，创建了一个对象系统。<br>包含字符串对象，列表对象，哈希对象，集合对象，有序集合对象。</p>
+<p>Redis的对象系统还实现了基于引用计数技术的内存回收机制</p>
+<a id="more"></a>
+
+<h1 id="对象的类型和编码"><a href="#对象的类型和编码" class="headerlink" title="对象的类型和编码"></a>对象的类型和编码</h1><p>redis对象包含如下属性</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">typedef struct redisObj&#123;</span><br><span class="line"></span><br><span class="line">	//类型</span><br><span class="line">	unsigned type;</span><br><span class="line">	</span><br><span class="line">	//编码</span><br><span class="line">	unsigned ecoding;</span><br><span class="line">	</span><br><span class="line">	//指向底层实现数据结构的指针</span><br><span class="line">	void *ptr;</span><br><span class="line">	</span><br><span class="line">	//lru属性记录了对象最后一次被访问的时间</span><br><span class="line">	unsigned lru;</span><br><span class="line">&#125; redisObj;</span><br></pre></td></tr></table></figure>
+
+<h2 id="类型"><a href="#类型" class="headerlink" title="类型"></a>类型</h2><p>type命令可以查看对象的类型，对应关系如下：<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_tb_8-1.png" alt=""></p>
+<h2 id="编码和底层实现"><a href="#编码和底层实现" class="headerlink" title="编码和底层实现"></a>编码和底层实现</h2><p>一个对象的底层实现可能有多种方式，比如列表对象底层可以是压缩链表或者双端链表实现，对应关系如下。<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_tb_8-2.png" alt=""></p>
+<p>object encoding命令可以查看一个数据库键的值对象编码.<br>OBJECT ENCODING对不同编码的输出<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_tb_8-4.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_tb_8-3.png" alt=""></p>
+<h1 id="字符串对象"><a href="#字符串对象" class="headerlink" title="字符串对象"></a>字符串对象</h1><p>字符串对象的编码可以是：</p>
+<ul>
+<li><strong>int</strong>：字符串对象保存的是整数值，并且这个整数值可以用long类型表示。</li>
+<li><strong>raw</strong>：字符串对象保存的是一个长度大于39字节</li>
+<li><strong>embstr</strong>：字符串对象保存的是一个长度小于等于39字节，此编码是专门用于保存字段字符串的一种优化编码方式。</li>
+</ul>
+<p>raw编码会调用<strong>两次内存分配函数</strong>分别创建redisObj结构和sdshdr结构，而embstr只调用<strong>一次内存分配函数</strong>来分配<strong>一块连续的空间</strong>，空间中一次包含redisObj和sdshdr。<br>使用embstr保存短字符串好处如下：</p>
+<ol>
+<li>减少一次内存分配函数的调用</li>
+<li>减少一次内存释放函数的调用</li>
+<li>所有数据在一块连续的内存里面，能够更好地利用缓存带来的优势</li>
+</ol>
+<pre><code>int编码的字符串对象  
+![](https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_8-1.png)
+
+raw编码的字符串对象
+![](https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_8-2.png)
+embstr编码的字符串对象
+![](https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_8-3.png)</code></pre><p>ps：<strong>可以用long double类型表示的浮点数</strong>在redis中使用<strong>字符串</strong>值来保存的。(c中的long double类型为128位，范围比double大)</p>
+<p>字符串对象保存各类型的编码方式<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_tb_8-5.png" alt=""></p>
+<h2 id="编码的转换"><a href="#编码的转换" class="headerlink" title="编码的转换"></a>编码的转换</h2><p>int编码的字符串对象，<strong>当这个对象保存的不在是整数值</strong>，而是字符串，编码会变为raw。<br>embstr编码的字符串对象是只读的，<strong>当对它进行任何修改</strong>命令的时候，程序会把编码编程raw，再执行修改命令。</p>
+<p><strong>字符串对象是唯一一个会被其他对象嵌套的对象</strong>。</p>
+<h1 id="列表对象"><a href="#列表对象" class="headerlink" title="列表对象"></a>列表对象</h1><p>列表对象的编码可以是ziplist或者linkedlist。</p>
+<p>当列表对象同时满足一下两个条件时，列表对象用ziplist编码</p>
+<ul>
+<li>列表对象保存的所有字符串元素的长度都小于等于64字节(阈值可修改)</li>
+<li>列表对象保存的元素小于等于512个(阈值可修改)</li>
+</ul>
+<h2 id="列表对象3-2版本之后"><a href="#列表对象3-2版本之后" class="headerlink" title="列表对象3.2版本之后"></a>列表对象3.2版本之后</h2><p>Redis中的列表对象在版本3.2之前，列表底层的编码是ziplist和linkedlist实现的，但是在版本3.2之后，重新引入了一个 quicklist 的数据结构，列表的底层都由quicklist实现。</p>
+<h1 id="哈希对象"><a href="#哈希对象" class="headerlink" title="哈希对象"></a>哈希对象</h1><p>哈希对象的编码可以是ziplist或者hashtable。</p>
+<p>压缩列表作为哈希对象的底层实现，每当有新的键值对要加入到哈希对象时，程序会将键压入压缩列表表尾，再将值压入压缩列表的表尾。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_8-4.png" alt=""></p>
+<p>hashtable编码底层用字典实现。<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_8-5.png" alt=""></p>
+<h2 id="编码转换"><a href="#编码转换" class="headerlink" title="编码转换"></a>编码转换</h2><p>当哈希对象同时满足以下两个条件是，哈希对象使用ziplist编码</p>
+<ul>
+<li>所保存的所有键值对的键和值的字符串长度都小于等于64字节</li>
+<li>所保存的键值对数量小于等于512个(非键和值的总和小于512)</li>
+</ul>
+<h1 id="集合对象"><a href="#集合对象" class="headerlink" title="集合对象"></a>集合对象</h1><p>集合对象的编码可以是intset或者hashtable。</p>
+<h2 id="编码转换-1"><a href="#编码转换-1" class="headerlink" title="编码转换"></a>编码转换</h2><p>当集合对象同时满足以下两个条件时，对象使用intset编码(整数集合)，否则用hashtable编码。</p>
+<ul>
+<li>保存的元组都是真数值</li>
+<li>保存元素的数量不超过512个</li>
+</ul>
+<h1 id="有序集合对象"><a href="#有序集合对象" class="headerlink" title="有序集合对象"></a>有序集合对象</h1><p>有序集合的编码可以是ziplist或者skiplist。  </p>
+<p>ziplist编码的有序集合对象使用压缩列表作为底层实现，每个集合元素使用<strong>两个紧挨在一起的压缩列表节点来保存，第一个保存元素成员，第二个保存元素的分值</strong>，压缩列表内的集合元素<strong>按分值从小到大</strong>进行排序，分值较小的元素被放置在靠近表头的位置。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_8-6.png" alt=""></p>
+<p>skiplist编码的有序集合对象使用zset结构作为底层实现，一个zset同时包含<strong>一个字典和一个跳跃表</strong>。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_8-7.png" alt=""></p>
+<p>程序可以对集合进行范围型操作，ZRANK、ZRANGE等命令是基于跳跃表的api实现的。</p>
+<p>字典的键保存了元素成员，值保存了元素的分值，通过这个字典，可以用O(1)的时间复杂度查找给定成员的分支。</p>
+<p><strong>为什么有序集合需要同时使用跳跃表和字典实现？</strong></p>
+<ol>
+<li>单独使用跳跃表，当需要根据成员查找分值的时候，需要遍历整个跳跃表，时间复杂度从O(1)上升到O(logN)。</li>
+<li>单独使用字典，则对元素进行排序等操作，至少需要O(NlogN)时间复杂度和额外的O(N)内存空间。</li>
+</ol>
+<p>同时使用跳表和字典，则兼容了两种数据结构的优点，并且两种数据结构<strong>通过指针共享相同元素的成员和分值</strong>，<strong>不会因此浪费额外的内存</strong>。</p>
+<h2 id="编码转换-2"><a href="#编码转换-2" class="headerlink" title="编码转换"></a>编码转换</h2><p>当有序集合对象同时满足以下两个条件时，对象使用ziplist编码。</p>
+<ul>
+<li>保存的元素数量小于128个</li>
+<li>保存元素的成员的长度小于64字节</li>
+</ul>
+<h1 id="内存回收"><a href="#内存回收" class="headerlink" title="内存回收"></a>内存回收</h1><p>通过引用计数法，适当的时候自动释放对象并进行内存回收。</p>
+<h1 id="对象共享"><a href="#对象共享" class="headerlink" title="对象共享"></a>对象共享</h1><p><strong>redis4.0 为了支持惰性删除，redis彻底废弃了对象共享机制</strong></p>
+<p>Redis在初始化服务器的时候，创建一万个字符串对象，这些字符串对象包含了0-9999的所有整数值，这些对象是会被共享的，不会重复创建。</p>
+<p><strong>Redis不共享其他字符串的对象？</strong></p>
+<p>一个共享对象保存的值越复杂，验证共享对象和目标对象是否相同所需要的复杂度就越高，消耗的CPU时间越多。</p>
+<ul>
+<li>如果共享对象是保存整数值的字符串对象，验证操作的时间复杂度为O(1)</li>
+<li>如果共享对象保存的是字符串值的字符串对象，验证操作的时间复杂度为O(n)</li>
+<li>如果是共享对象是复杂对象，例如列表对象，那么验证操作的时间复杂度为O($n^2$)</li>
+</ul>
+<h1 id="对象空转时长"><a href="#对象空转时长" class="headerlink" title="对象空转时长"></a>对象空转时长</h1><p>lru属性记录了对象最后一次被访问的时间。</p>
+<p>OBJECT IDLETIME命令可以打印给定键的空转时长，且不会更新它的lru时间。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/redis/" rel="tag"># redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/10/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis01_%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/" rel="prev" title="redis01_数据结构">
+      <i class="fa fa-chevron-left"></i> redis01_数据结构
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/06/15/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis03_%E6%8C%81%E4%B9%85%E5%8C%96/" rel="next" title="redis03_持久化">
+      redis03_持久化 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#redis对象"><span class="nav-number">1.</span> <span class="nav-text">redis对象</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#概述"><span class="nav-number">1.1.</span> <span class="nav-text">概述</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#对象的类型和编码"><span class="nav-number">2.</span> <span class="nav-text">对象的类型和编码</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#类型"><span class="nav-number">2.1.</span> <span class="nav-text">类型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#编码和底层实现"><span class="nav-number">2.2.</span> <span class="nav-text">编码和底层实现</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#字符串对象"><span class="nav-number">3.</span> <span class="nav-text">字符串对象</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#编码的转换"><span class="nav-number">3.1.</span> <span class="nav-text">编码的转换</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#列表对象"><span class="nav-number">4.</span> <span class="nav-text">列表对象</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#列表对象3-2版本之后"><span class="nav-number">4.1.</span> <span class="nav-text">列表对象3.2版本之后</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#哈希对象"><span class="nav-number">5.</span> <span class="nav-text">哈希对象</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#编码转换"><span class="nav-number">5.1.</span> <span class="nav-text">编码转换</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#集合对象"><span class="nav-number">6.</span> <span class="nav-text">集合对象</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#编码转换-1"><span class="nav-number">6.1.</span> <span class="nav-text">编码转换</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#有序集合对象"><span class="nav-number">7.</span> <span class="nav-text">有序集合对象</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#编码转换-2"><span class="nav-number">7.1.</span> <span class="nav-text">编码转换</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#内存回收"><span class="nav-number">8.</span> <span class="nav-text">内存回收</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#对象共享"><span class="nav-number">9.</span> <span class="nav-text">对象共享</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#对象空转时长"><span class="nav-number">10.</span> <span class="nav-text">对象空转时长</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

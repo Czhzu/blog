@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="分布式环境的各种问题通信异常从集中式向分布式演变的过程中,必然引入了网络因素,而由于网络本身的不可靠性因此也引入了额外的问题。 网络分区当网络由于发生异常情况,导致分布式系统中部分节点之间的网络延时不断增大,最终导致组成分布式系统的所有节点中,只有部分节点之间能够进行正常通信,而另一些节点则不能——我们将这个现象称为网络分区,就是俗称的“脑裂”。 三态从上面的介绍中,我们已经了解到了在分布式环境下">
+<meta name="keywords" content="分布式">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式事务01_分布式概念">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;08&#x2F;01&#x2F;%E5%88%86%E5%B8%83%E5%BC%8F&#x2F;%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A101_%E5%88%86%E5%B8%83%E5%BC%8F%E6%A6%82%E5%BF%B5&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="分布式环境的各种问题通信异常从集中式向分布式演变的过程中,必然引入了网络因素,而由于网络本身的不可靠性因此也引入了额外的问题。 网络分区当网络由于发生异常情况,导致分布式系统中部分节点之间的网络延时不断增大,最终导致组成分布式系统的所有节点中,只有部分节点之间能够进行正常通信,而另一些节点则不能——我们将这个现象称为网络分区,就是俗称的“脑裂”。 三态从上面的介绍中,我们已经了解到了在分布式环境下">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;fbs&#x2F;cpa_01.jpeg">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;fbs&#x2F;cpa_02.png">
+<meta property="og:updated_time" content="2020-05-10T15:01:20.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;fbs&#x2F;cpa_01.jpeg">
+
+<link rel="canonical" href="http://yoursite.com/2019/08/01/%E5%88%86%E5%B8%83%E5%BC%8F/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A101_%E5%88%86%E5%B8%83%E5%BC%8F%E6%A6%82%E5%BF%B5/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>分布式事务01_分布式概念 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/08/01/%E5%88%86%E5%B8%83%E5%BC%8F/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A101_%E5%88%86%E5%B8%83%E5%BC%8F%E6%A6%82%E5%BF%B5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          分布式事务01_分布式概念
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-01 20:30:00" itemprop="dateCreated datePublished" datetime="2019-08-01T20:30:00+08:00">2019-08-01</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-05-10 23:01:20" itemprop="dateModified" datetime="2020-05-10T23:01:20+08:00">2020-05-10</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F/" itemprop="url" rel="index"><span itemprop="name">分布式</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="分布式环境的各种问题"><a href="#分布式环境的各种问题" class="headerlink" title="分布式环境的各种问题"></a>分布式环境的各种问题</h1><h2 id="通信异常"><a href="#通信异常" class="headerlink" title="通信异常"></a>通信异常</h2><p>从集中式向分布式演变的过程中,必然引入了网络因素,而由于网络本身的不可靠性因此也引入了额外的问题。</p>
+<h2 id="网络分区"><a href="#网络分区" class="headerlink" title="网络分区"></a>网络分区</h2><p>当网络由于发生异常情况,导致分布式系统中部分节点之间的网络延时不断增大,最终导致组成分布式系统的所有节点中,只有部分节点之间能够进行正常通信,而另一些节点则不能——我们将这个现象称为<strong>网络分区,就是俗称的“脑裂”</strong>。</p>
+<h2 id="三态"><a href="#三态" class="headerlink" title="三态"></a>三态</h2><p>从上面的介绍中,我们已经了解到了在分布式环境下,网络可能会出现各式各样的问题,因此<strong>分布式系统的每一次请求与响应,存在特有的“三态”概念,即成功、失败与超时。在传统的单机系统中,应用程序在调用一个函数之后,能够得到一个非常明确的响应:成功或失败。</strong></p>
+<p>而在分布式系统中,由于网络是不可靠的,虽然在绝大部分情况下,网络通信也能够接收到成功或失败的响应,但是当网络出现异常的情况下,就可能会出现超时现象。</p>
+<h2 id="节点故障"><a href="#节点故障" class="headerlink" title="节点故障"></a>节点故障</h2><p>节点故障则是分布式环境下另一个比较常见的问题,指的是组成分布式系统的服务器节点出现的宕机或“僵死”现象。通常根据经验来说,毎个节点都有可能会出现故障,并且每天都在发生。</p>
+<a id="more"></a>
+
+<h1 id="CAP定理"><a href="#CAP定理" class="headerlink" title="CAP定理"></a>CAP定理</h1><p><strong>一个分布式系统不可能同时满足一致性、可用性和分区容错性这三个基本需求,最多只能同时满足其中的两项。</strong></p>
+<h2 id="一致性-Consistency"><a href="#一致性-Consistency" class="headerlink" title="一致性(Consistency)"></a>一致性(Consistency)</h2><p><strong>在分布式环境中,一致性是指数据在多个副本之间是否能够保持一致的特性。</strong></p>
+<p>在一致性的需求下,当一个系统在数据一致的状态下执行更新操作后,应该保证系统的数据仍然处于一致的状态。对于一个将数据副夲分布在不同分布式节点上的系统来说,如果对第一个节点的数据进行了更新操作并且更新成功后,却没有使得第二个节点上的数据得到相应的更新,于是在对第二个节点的数据进行读取操作时,获取的依然是老数据(或称为脏数据),这就是典型的<strong>分布式数据不一致情况</strong>。</p>
+<p>在分布式系统中,如果能够做到针对一个数据项的更新操作执行成功后,所有的用户都可以读取到其最新的值,那么这样的系统就被认为具有<strong>强一致性(或严格的一致性)。</strong></p>
+<h2 id="可用性-Availability"><a href="#可用性-Availability" class="headerlink" title="可用性(Availability)"></a>可用性(Availability)</h2><p>可用性是指系统提供的服务必须一直处于可用的状态,对于用户的每一个操作请求总是能够在<strong>有限的时间内返回结果</strong>。</p>
+<p>这里我们重点看下“有限的时间内”和“返回结果”。</p>
+<p>“有限的时间内”是指,对于用户的一个操作请求,系统必须能够在指定的时间(即响应时间)内返回对应的处理结果,如果超过了这个时间范围,那么系统就被认为是不可用的。(例如互联网公司一般要求接口响应在200ms以内)</p>
+<p>“返回结果”是可用性的另一个非常重要的指标,它要求系统在完成对用户请求的处理后,返回一个正常的响应结果。正常的响应结果通常能够明确地反映出对请求的处理结果,即成功或失败,而不是一个让用户感到困惑的返回结果。</p>
+<h2 id="分区容错性"><a href="#分区容错性" class="headerlink" title="分区容错性"></a>分区容错性</h2><p>分区容错性约束了一个分布式系统需要具有如下特性:</p>
+<p><strong>分布式系统在遇到任何网络分区故障的时候,仍然需要能够保证对外提供满足一致性和可用性的服务,除非是整个网络环境都发生了故障。</strong></p>
+<p>网络分区是指在分布式系统中,不同的节点分布在不同的子网络(机房或异地网络等)中,由于一些特殊的原因导致这些子网络之间出现网络不连通的状况,但各个子网络的内部网络是正常的,从而导致整个系统的网络环境被切分成了若干个孤立的区域。需要注意的是,组成一个分布式系统的每个节点的加入与退出都可以看作是一个特殊的网络分区。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/fbs/cpa_01.jpeg" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/fbs/cpa_02.png" alt=""></p>
+<p>从CAP定理中我们可以看出,一个分布式系统不可能同时满足一致性、可用性和分区容错性这三个需求。另一方面,需要明确的一点是,<strong>对于一个分布式系统而言,分区容错性可以说是一个最基本的要求</strong>。而对于分布式系统而言,网络问题又是一个必定会出现的异常情况,因此分区容错性也就成为了一个分布式系统必然需要面对和解决的问题。因此系统架构设计师往往需要把精力花在<strong>如何根据业务特点在C(一致性)和A(可用性)之间寻求平衡。</strong></p>
+<blockquote>
+<p>C和P是互斥的，所以我们只能权衡ca 或者ap</p>
+</blockquote>
+<h1 id="BASE理论"><a href="#BASE理论" class="headerlink" title="BASE理论"></a>BASE理论</h1><p>BASE是 Basically Available(基本可用)、 Soft state(软状态)和 Eventually consistent(最终一致性)三个短语的简写。</p>
+<p>其核心思想是<strong>即使无法做到强一致性( Strong consistency),但毎个应用都可以根据自身的业务特点,采用适当的方式来使系统达到最终一致性( Eventual consistency)。</strong></p>
+<h2 id="基本可用（Basically-Available）"><a href="#基本可用（Basically-Available）" class="headerlink" title="基本可用（Basically Available）"></a>基本可用（Basically Available）</h2><p>指分布式系统在出现不可预知故障的时候，允许损失部分可用性。</p>
+<h2 id="软状态（-Soft-State）"><a href="#软状态（-Soft-State）" class="headerlink" title="软状态（ Soft State）"></a>软状态（ Soft State）</h2><p>指允许系统中的数据存在中间状态，并认为该中间状态的存在不会影响系统的整体可用性。</p>
+<h2 id="最终一致（-Eventual-Consistency）"><a href="#最终一致（-Eventual-Consistency）" class="headerlink" title="最终一致（ Eventual Consistency）"></a>最终一致（ Eventual Consistency）</h2><p> 强调的是所有的数据更新操作，在经过一段时间的同步之后，最终都能够达到一个一致的状态。因此，最终一致性的本质是需要系统保证最终数据能够达到一致，而不需要实时保证系统数据的强一致性。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/" rel="tag"># 分布式</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/07/15/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis09_%E5%B8%B8%E8%A7%81%E5%BA%94%E7%94%A8%E5%9C%BA%E6%99%AF%E5%92%8C%E9%97%AE%E9%A2%98%E6%95%B4%E7%90%86/" rel="prev" title="redis09_常见问题整理">
+      <i class="fa fa-chevron-left"></i> redis09_常见问题整理
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/02/%E5%88%86%E5%B8%83%E5%BC%8F/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A102_%E4%B8%80%E8%87%B4%E6%80%A7%E7%AE%97%E6%B3%95-2PC&3PC/" rel="next" title="分布式事务02_一致性算法-2PC&3PC">
+      分布式事务02_一致性算法-2PC&3PC <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#分布式环境的各种问题"><span class="nav-number">1.</span> <span class="nav-text">分布式环境的各种问题</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#通信异常"><span class="nav-number">1.1.</span> <span class="nav-text">通信异常</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#网络分区"><span class="nav-number">1.2.</span> <span class="nav-text">网络分区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#三态"><span class="nav-number">1.3.</span> <span class="nav-text">三态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#节点故障"><span class="nav-number">1.4.</span> <span class="nav-text">节点故障</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CAP定理"><span class="nav-number">2.</span> <span class="nav-text">CAP定理</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#一致性-Consistency"><span class="nav-number">2.1.</span> <span class="nav-text">一致性(Consistency)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#可用性-Availability"><span class="nav-number">2.2.</span> <span class="nav-text">可用性(Availability)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#分区容错性"><span class="nav-number">2.3.</span> <span class="nav-text">分区容错性</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#BASE理论"><span class="nav-number">3.</span> <span class="nav-text">BASE理论</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#基本可用（Basically-Available）"><span class="nav-number">3.1.</span> <span class="nav-text">基本可用（Basically Available）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#软状态（-Soft-State）"><span class="nav-number">3.2.</span> <span class="nav-text">软状态（ Soft State）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#最终一致（-Eventual-Consistency）"><span class="nav-number">3.3.</span> <span class="nav-text">最终一致（ Eventual Consistency）</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

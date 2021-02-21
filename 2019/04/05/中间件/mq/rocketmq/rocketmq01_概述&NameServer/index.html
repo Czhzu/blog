@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="设计理念RocketMQ 设计基于主题的发布与订阅 模式 ， 其核心功能包括消息发送、 消息存储(Broker）、消息消费，整体设计追求简单与性能第一，主要体现在如下三个方面。">
+<meta name="keywords" content="mq,rocketmq">
+<meta property="og:type" content="article">
+<meta property="og:title" content="rocketmq01_概述&amp;NameServer">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;04&#x2F;05&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;mq&#x2F;rocketmq&#x2F;rocketmq01_%E6%A6%82%E8%BF%B0&amp;NameServer&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="设计理念RocketMQ 设计基于主题的发布与订阅 模式 ， 其核心功能包括消息发送、 消息存储(Broker）、消息消费，整体设计追求简单与性能第一，主要体现在如下三个方面。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;NameServer_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;NameServer_02.png">
+<meta property="og:updated_time" content="2020-04-12T12:42:23.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;NameServer_01.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/04/05/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq01_%E6%A6%82%E8%BF%B0&NameServer/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>rocketmq01_概述&NameServer | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/04/05/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq01_%E6%A6%82%E8%BF%B0&NameServer/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          rocketmq01_概述&NameServer
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-05 20:00:00" itemprop="dateCreated datePublished" datetime="2019-04-05T20:00:00+08:00">2019-04-05</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-04-12 20:42:23" itemprop="dateModified" datetime="2020-04-12T20:42:23+08:00">2020-04-12</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/" itemprop="url" rel="index"><span itemprop="name">mq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/rocketmq/" itemprop="url" rel="index"><span itemprop="name">rocketmq</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="设计理念"><a href="#设计理念" class="headerlink" title="设计理念"></a>设计理念</h1><p>RocketMQ 设计基于主题的发布与订阅 模式 ， 其核心功能包括消息发送、 消息存储(Broker）、消息消费，<strong>整体设计追求简单与性能第一</strong>，主要体现在如下三个方面。</p>
+<a id="more"></a>
+
+<h2 id="摈弃ZK作为信息管理的注册中心"><a href="#摈弃ZK作为信息管理的注册中心" class="headerlink" title="摈弃ZK作为信息管理的注册中心"></a>摈弃ZK作为信息管理的注册中心</h2><p>根据CAP原理，zk是追求强一致性的，牺牲可用性。RocketMq自研NameServer来实现元数据的管理（Topic 路由信息等）。从实际需求出发，因为 Topic 路由信息无须在集群之间保持强一致，<strong>追求最终一致性</strong>，并且能容忍分钟级的不一致。<strong>RocketMQ的NameServer集群之间互不通信</strong>，极大地降低了NameServer实现的复杂程度， 对网络的要求也降低了不少 ，但是性能相比较 Zookeeper有了极大的提升。</p>
+<h2 id="高效IO存储机制"><a href="#高效IO存储机制" class="headerlink" title="高效IO存储机制"></a>高效IO存储机制</h2><p>RocketMQ追求消息发送的高吞吐量，RocketMQ的消息存储文件设计成文件组的概念，组内单个文件大小固定，方便引人内存l映射机制，<strong>所有主题的消息存储基于顺序写</strong> ，极大地提供了消息写性能，同时为了兼顾消息消 费与消息查找，引入了消息消费队列文件与索引文件。</p>
+<h2 id="容忍存在设计缺陷"><a href="#容忍存在设计缺陷" class="headerlink" title="容忍存在设计缺陷"></a>容忍存在设计缺陷</h2><p>只保证消息被消 费者消费，但<strong>设计上允许消息被重复消费</strong>，这样极大地简化了消息中间件的内核，使得实现消息发送高可用变得非常简单高效,<strong>消息重复问题由消费者在消息消费时实现幕等</strong>。</p>
+<h1 id="设计目标"><a href="#设计目标" class="headerlink" title="设计目标"></a>设计目标</h1><p>RocketMQ 作为一款消息 中间件 ，需要解决如下问题。</p>
+<h2 id="架构模式"><a href="#架构模式" class="headerlink" title="架构模式"></a>架构模式</h2><p>RocketMQ 与大部分消息中间件一样，采用发布订阅模式，基本的参与组件主要包括：消息发送者、消息服务器（消息存储）、消息消费、路由发现。</p>
+<h2 id="顺序消息"><a href="#顺序消息" class="headerlink" title="顺序消息"></a>顺序消息</h2><p>所谓顺序消息，就是消息消费者按照消息达到消息存储服务器的顺序消费。 RocketMQ可以严格保证消息有序。</p>
+<h2 id="消息过滤"><a href="#消息过滤" class="headerlink" title="消息过滤"></a>消息过滤</h2><p>消息过滤是指在消息消费时，消息消费者可以对同一主题下的消息按照规则 己感兴趣的消息。 RocketMQ消息过滤支持<strong>在服务端与消费端</strong>的消息过滤机制 。 </p>
+<ul>
+<li>消息在Broker端过滤。Broker只将消息消费者感兴趣的消息发送给消息消费者。 </li>
+<li>消息在消息消费端过滤，消息过滤方式完全 由消息消费者自定义，但缺点是有很多无用的消息会从Broker传输到消费端。</li>
+</ul>
+<h2 id="消息存储"><a href="#消息存储" class="headerlink" title="消息存储"></a>消息存储</h2><p>消息中间件的 一个核心实现是消息的存储对消息存储一般有如下两个维度的考量 ： <strong>消息堆积能力</strong>和<strong>消息存储性能。</strong><br>RocketMQ 追求消息存储的高性能，引人内存映射机制，所 有主题的消息顺序存储在同一个文件中 。 同时为了避免消息无限在消息存储服务器中累积，引入了<strong>消息文件过期机制</strong>与<strong>文件存储空间报警机制</strong>。</p>
+<h2 id="消息高可用性"><a href="#消息高可用性" class="headerlink" title="消息高可用性"></a>消息高可用性</h2><p>RocketMQ在同步刷盘机制下可以确保不丢失消息，在异步刷盘模式下会丢失少量消息。 </p>
+<p>对于单点故障，一旦发生，该节点上的消息全部丢失。<br>异步复制，可能会丢失少量数据。<br>同步双写，保证数据不丢失。  </p>
+<h2 id="消息到达（消费）低延迟"><a href="#消息到达（消费）低延迟" class="headerlink" title="消息到达（消费）低延迟"></a>消息到达（消费）低延迟</h2><p>RocketMQ在消息不发生消息堆积时，<strong>以长轮询模式实现准实时的消息推送模式</strong>。</p>
+<h2 id="确保消息必须被消费一次（消息重复）"><a href="#确保消息必须被消费一次（消息重复）" class="headerlink" title="确保消息必须被消费一次（消息重复）"></a>确保消息必须被消费一次（消息重复）</h2><p>RocketMQ通过消息消费确认机制（ACK）来确保消息至少被消费一次 ，但由于ACK 消息有可能丢失等其他原因，RocketMQ无法做到消息只被消费一次，有重复消费的可能。</p>
+<h2 id="回溯消息"><a href="#回溯消息" class="headerlink" title="回溯消息"></a>回溯消息</h2><p>回溯消息是指消息消费端已经消费成功的消息，由于业务要求需要重新消费消息 。 RocketMQ支持按时间回溯消息，时间维度可精确到毫秒，可以向前或向后回溯。</p>
+<h2 id="消息堆积"><a href="#消息堆积" class="headerlink" title="消息堆积"></a>消息堆积</h2><p>消息中间件的主要功能是异步解锢，必须具备应对前端的数据洪峰，提高后端系统的可用性，<strong>必然要求消息中间件具备一定的消息堆积能力</strong>。 RocketMQ消息存储使用磁盘文件（内存映射机制），并且在物理布局上为多个大小相等的文件组成逻辑文件组，可以无限循环使用。RocketMQ消息存储文件并不是永久存储在消息服务器端，而是提供了过期机制，默认保留 3天。</p>
+<h2 id="定时消息"><a href="#定时消息" class="headerlink" title="定时消息"></a>定时消息</h2><p>定时消息是指消息发送到Broker后，不能被消息消费端立即消费，要到特定的时间点或者等待特定的时间后才能被消费。 如果要支持任意精度的定时消息消费，必须在消息服务端对消息进行排序，势必带来很大的性能损耗，故RocketMQ不支持任意进度的定时消息，而只支持特定延迟级别。</p>
+<h2 id="消息重试机制"><a href="#消息重试机制" class="headerlink" title="消息重试机制"></a>消息重试机制</h2><p>消息重试是指消息在消费时，如果发送异常，消息中间件需要支持消息重新投递，RocketMQ支持消息重试机制。</p>
+<h1 id="NameServer"><a href="#NameServer" class="headerlink" title="NameServer"></a>NameServer</h1><p> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/NameServer_01.png" alt=""></p>
+<p> Broker消息服务器在启动时向所有NameServer注册，Producer在发送消 息之前先从NameServer获取 Broker服务器地址列表，然后根据负载算法从列表中选择一台消息服务器进行消息发送。 </p>
+<p>NameServer与每台Broker服务器保持长连接，并间隔 30s检测Broker是否存活，如果检测到 Broker 宕机 ，则 从路由注册表中将其移除。但是路由变 化不会马上通知消息生产者，为了降低NameServer实现的复杂性 ，在消息发送端提供容错机制来保证消息发送的高可用性。</p>
+<p><strong>NameServer本身的高可用可通过部署多台NameServer服务器来实现</strong>，但彼此之间互不通信，也就是 NameServer 服务器之间在某一时刻的数据并不会完全相同，但这对消息发送不会造成任何影响。</p>
+<h2 id="路由注册"><a href="#路由注册" class="headerlink" title="路由注册"></a>路由注册</h2><p>RocketMQ路由注册是通过Broker与NameServer的心跳功能实现的。<strong>Broker启动时向集群中所有的NameServer发送心跳语句，每隔30s向集群 中所有NameServer发送心跳包</strong></p>
+<p>NameServer收到Broker心跳包时会更新brokerLiveTable缓存中 BrokerLivelnfo的lastUpdateTimestamp ，然后NameServer每隔10s扫描 brokerLiveTable，如果连续120s 没有收到心跳包， NameServer 将移除该 Broker 的路由信息同时关闭 Socket 连接。</p>
+<h2 id="路由删除"><a href="#路由删除" class="headerlink" title="路由删除"></a>路由删除</h2><p>RocktMQ 有两个触发点来触发路由删除。 </p>
+<ol>
+<li>NameServer定时扫描 brokerLiveTable 检测上次心跳包与当前系统时间的时间差， 如果时间戳大于120s ，则需要移除该Broker信息。</li>
+<li>Broker 在正常被关闭的情况下，发送命令到NameServer。</li>
+</ol>
+<h2 id="路由发现"><a href="#路由发现" class="headerlink" title="路由发现"></a>路由发现</h2><p>RocketMQ 路由发现是非实时的，当Topic 路由出现变化后， NameServer不主动推送给客户端 ， 而是由客户端定时拉取主题最新的路由。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/NameServer_02.png" alt=""></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mq/" rel="tag"># mq</a>
+              <a href="/tags/rocketmq/" rel="tag"># rocketmq</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/02/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka05_%E9%9B%86%E7%BE%A4%E7%AE%A1%E7%90%86%7C%E5%B8%B8%E8%A7%81%E9%97%AE%E9%A2%98/" rel="prev" title="kafka05_集群管理|常见问题">
+      <i class="fa fa-chevron-left"></i> kafka05_集群管理|常见问题
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/04/06/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq02_Producer/" rel="next" title="rocketmq02_Producer">
+      rocketmq02_Producer <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#设计理念"><span class="nav-number">1.</span> <span class="nav-text">设计理念</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#摈弃ZK作为信息管理的注册中心"><span class="nav-number">1.1.</span> <span class="nav-text">摈弃ZK作为信息管理的注册中心</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#高效IO存储机制"><span class="nav-number">1.2.</span> <span class="nav-text">高效IO存储机制</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#容忍存在设计缺陷"><span class="nav-number">1.3.</span> <span class="nav-text">容忍存在设计缺陷</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#设计目标"><span class="nav-number">2.</span> <span class="nav-text">设计目标</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#架构模式"><span class="nav-number">2.1.</span> <span class="nav-text">架构模式</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#顺序消息"><span class="nav-number">2.2.</span> <span class="nav-text">顺序消息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息过滤"><span class="nav-number">2.3.</span> <span class="nav-text">消息过滤</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息存储"><span class="nav-number">2.4.</span> <span class="nav-text">消息存储</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息高可用性"><span class="nav-number">2.5.</span> <span class="nav-text">消息高可用性</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息到达（消费）低延迟"><span class="nav-number">2.6.</span> <span class="nav-text">消息到达（消费）低延迟</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#确保消息必须被消费一次（消息重复）"><span class="nav-number">2.7.</span> <span class="nav-text">确保消息必须被消费一次（消息重复）</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#回溯消息"><span class="nav-number">2.8.</span> <span class="nav-text">回溯消息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息堆积"><span class="nav-number">2.9.</span> <span class="nav-text">消息堆积</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#定时消息"><span class="nav-number">2.10.</span> <span class="nav-text">定时消息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息重试机制"><span class="nav-number">2.11.</span> <span class="nav-text">消息重试机制</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#NameServer"><span class="nav-number">3.</span> <span class="nav-text">NameServer</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#路由注册"><span class="nav-number">3.1.</span> <span class="nav-text">路由注册</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#路由删除"><span class="nav-number">3.2.</span> <span class="nav-text">路由删除</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#路由发现"><span class="nav-number">3.3.</span> <span class="nav-text">路由发现</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

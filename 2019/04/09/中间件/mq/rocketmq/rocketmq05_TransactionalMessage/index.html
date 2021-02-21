@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="事务消息简介RocketMQ事务消息（Transactional Message）是指应用本地事务和发送消息操作可以被定义到全局事务中，要么同时成功，要么同时失败。RocketMQ的事务消息提供类似 X&#x2F;Open XA 的分布事务功能，通过事务消息能达到分布式事务的最终一致。 事务消息能保证producer发送消息的一致性。">
+<meta name="keywords" content="mq,rocketmq">
+<meta property="og:type" content="article">
+<meta property="og:title" content="rocketmq05_TransactionalMessage">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;04&#x2F;09&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;mq&#x2F;rocketmq&#x2F;rocketmq05_TransactionalMessage&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="事务消息简介RocketMQ事务消息（Transactional Message）是指应用本地事务和发送消息操作可以被定义到全局事务中，要么同时成功，要么同时失败。RocketMQ的事务消息提供类似 X&#x2F;Open XA 的分布事务功能，通过事务消息能达到分布式事务的最终一致。 事务消息能保证producer发送消息的一致性。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;rocketmq_design_10.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;rocketmq_design_11.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;rocketmq_design_12.png">
+<meta property="og:updated_time" content="2020-04-12T14:43:27.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;rocketMq&#x2F;rocketmq_design_10.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/04/09/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq05_TransactionalMessage/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>rocketmq05_TransactionalMessage | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/04/09/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq05_TransactionalMessage/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          rocketmq05_TransactionalMessage
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-09 20:00:00" itemprop="dateCreated datePublished" datetime="2019-04-09T20:00:00+08:00">2019-04-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-04-12 22:43:27" itemprop="dateModified" datetime="2020-04-12T22:43:27+08:00">2020-04-12</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/" itemprop="url" rel="index"><span itemprop="name">mq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/rocketmq/" itemprop="url" rel="index"><span itemprop="name">rocketmq</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="事务消息简介"><a href="#事务消息简介" class="headerlink" title="事务消息简介"></a>事务消息简介</h1><p>RocketMQ事务消息（Transactional Message）是指应用本地事务和发送消息操作可以被定义到全局事务中，要么同时成功，要么同时失败。RocketMQ的事务消息提供类似 X/Open XA 的分布事务功能，通过事务消息能达到分布式事务的最终一致。</p>
+<p>事务消息能保证producer发送消息的一致性。</p>
+<a id="more"></a>
+
+<p>Apache RocketMQ在4.3.0版中已经支持分布式事务消息，这里RocketMQ采用了2PC的思想来实现了提交事务消息，同时增加一个补偿逻辑来处理二阶段超时或者失败的消息，如下图所示。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/rocketmq_design_10.png" alt=""></p>
+<h1 id="RocketMQ事务消息流程概要"><a href="#RocketMQ事务消息流程概要" class="headerlink" title="RocketMQ事务消息流程概要"></a>RocketMQ事务消息流程概要</h1><p>上图说明了事务消息的大致方案，其中分为两个流程：正常事务消息的发送及提交、事务消息的补偿流程。</p>
+<h2 id="事务消息发送及提交"><a href="#事务消息发送及提交" class="headerlink" title="事务消息发送及提交"></a>事务消息发送及提交</h2><ol>
+<li><p>发送消息（half消息）。</p>
+</li>
+<li><p>服务端响应消息写入结果。</p>
+</li>
+<li><p>根据发送结果执行本地事务（如果写入失败，此时half消息对业务不可见，本地逻辑不执行）。</p>
+</li>
+<li><p>根据本地事务状态执行Commit或者Rollback（Commit操作生成消息索引，消息对消费者可见）</p>
+</li>
+</ol>
+<h2 id="补偿流程"><a href="#补偿流程" class="headerlink" title="补偿流程"></a>补偿流程</h2><ol>
+<li>对没有Commit/Rollback的事务消息（pending状态的消息），从服务端发起一次“回查”</li>
+<li>Producer收到回查消息，检查回查消息对应的本地事务的状态</li>
+<li>根据本地事务状态，重新Commit或者Rollback</li>
+</ol>
+<p>其中，补偿阶段用于解决消息Commit或者Rollback发生超时或者失败的情况。</p>
+<h1 id="RocketMQ事务消息设计"><a href="#RocketMQ事务消息设计" class="headerlink" title="RocketMQ事务消息设计"></a>RocketMQ事务消息设计</h1><h2 id="事务消息在一阶段对用户不可见"><a href="#事务消息在一阶段对用户不可见" class="headerlink" title="事务消息在一阶段对用户不可见"></a>事务消息在一阶段对用户不可见</h2><p>在RocketMQ事务消息的主要流程中，一阶段的消息如何对用户不可见。其中，事务消息相对普通消息最大的特点就是一阶段发送的消息对用户是不可见的。那么，如何做到写入消息但是对用户不可见呢？RocketMQ事务消息的做法是：如果消息是half消息，将备份原消息的主题与消息消费队列，然后改变主题为RMQ_SYS_TRANS_HALF_TOPIC。由于消费组未订阅该主题，故消费端无法消费half类型的消息，然后RocketMQ会开启一个定时任务，从Topic为RMQ_SYS_TRANS_HALF_TOPIC中拉取消息进行消费，根据生产者组获取一个服务提供者发送回查事务状态请求，根据事务状态来决定是提交或回滚消息。</p>
+<p>在RocketMQ中，消息在服务端的存储结构如下，每条消息都会有对应的索引信息，Consumer通过ConsumeQueue这个二级索引来读取消息实体内容，其流程如下：</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/rocketmq_design_11.png" alt=""></p>
+<p>RocketMQ的具体实现策略是：写入的如果事务消息，对消息的Topic和Queue等属性进行替换，同时将原来的Topic和Queue信息存储到消息的属性中，正因为消息主题被替换，故消息并不会转发到该原主题的消息消费队列，消费者无法感知消息的存在，不会消费。其实改变消息主题是RocketMQ的常用“套路”，回想一下延时消息的实现机制。</p>
+<h2 id="Commit和Rollback操作以及Op消息的引入"><a href="#Commit和Rollback操作以及Op消息的引入" class="headerlink" title="Commit和Rollback操作以及Op消息的引入"></a>Commit和Rollback操作以及Op消息的引入</h2><p>在完成一阶段写入一条对用户不可见的消息后，二阶段如果是Commit操作，则需要让消息对用户可见；如果是Rollback则需要撤销一阶段的消息。先说Rollback的情况。对于Rollback，本身一阶段的消息对用户是不可见的，其实不需要真正撤销消息（实际上RocketMQ也无法去真正的删除一条消息，因为是顺序写文件的）。但是区别于这条消息没有确定状态（Pending状态，事务悬而未决），需要一个操作来标识这条消息的最终状态。RocketMQ事务消息方案中引入了Op消息的概念，用Op消息标识事务消息已经确定的状态（Commit或者Rollback）。如果一条事务消息没有对应的Op消息，说明这个事务的状态还无法确定（可能是二阶段失败了）。引入Op消息后，事务消息无论是Commit或者Rollback都会记录一个Op操作。Commit相对于Rollback只是在写入Op消息前创建Half消息的索引。</p>
+<h2 id="Op消息的存储和对应关系"><a href="#Op消息的存储和对应关系" class="headerlink" title="Op消息的存储和对应关系"></a>Op消息的存储和对应关系</h2><p>RocketMQ将Op消息写入到全局一个特定的Topic中通过源码中的方法—TransactionalMessageUtil.buildOpTopic()；这个Topic是一个内部的Topic（像Half消息的Topic一样），不会被用户消费。Op消息的内容为对应的Half消息的存储的Offset，这样通过Op消息能索引到Half消息进行后续的回查操作。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/rocketMq/rocketmq_design_12.png" alt=""></p>
+<h2 id="Half消息的索引构建"><a href="#Half消息的索引构建" class="headerlink" title="Half消息的索引构建"></a>Half消息的索引构建</h2><p>在执行二阶段Commit操作时，需要构建出Half消息的索引。一阶段的Half消息由于是写到一个特殊的Topic，所以二阶段构建索引时需要读取出Half消息，并将Topic和Queue替换成真正的目标的Topic和Queue，之后通过一次普通消息的写入操作来生成一条对用户可见的消息。所以RocketMQ事务消息二阶段其实是利用了一阶段存储的消息的内容，在二阶段时恢复出一条完整的普通消息，然后走一遍消息写入流程。</p>
+<h2 id="如何处理二阶段失败的消息？"><a href="#如何处理二阶段失败的消息？" class="headerlink" title="如何处理二阶段失败的消息？"></a>如何处理二阶段失败的消息？</h2><p>如果在RocketMQ事务消息的二阶段过程中失败了，例如在做Commit操作时，出现网络问题导致Commit失败，那么需要通过一定的策略使这条消息最终被Commit。RocketMQ采用了一种补偿机制，称为“回查”。Broker端对未确定状态的消息发起回查，将消息发送到对应的Producer端（同一个Group的Producer），由Producer根据消息来检查本地事务的状态，进而执行Commit或者Rollback。Broker端通过对比Half消息和Op消息进行事务消息的回查并且推进CheckPoint（记录那些事务消息的状态是确定的）。</p>
+<p>值得注意的是，rocketmq并不会无休止的的信息事务状态回查，默认回查15次，如果15次回查还是无法得知事务状态，rocketmq默认回滚该消息。</p>
+<h1 id="事务消息实战"><a href="#事务消息实战" class="headerlink" title="事务消息实战"></a>事务消息实战</h1><h2 id="方案一"><a href="#方案一" class="headerlink" title="方案一"></a>方案一</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">@Transactional</span><br><span class="line">public void createOrder() &#123;</span><br><span class="line">    save();//将数据存入数据库</span><br><span class="line">    sendMq();//发送消息到mq</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>方案一有以下弊端。</p>
+<ol>
+<li>如果消息发送成功,在提交事务的时候JVM突然挂掉,事务没有成功提交,导致两个系统之间数据不一致。</li>
+<li>由于消息是在事务提交之前提交,发送的消息内容是订单实体的内容,会造成在消费端进行消费时如果需要验证订单是否存在时可能出现订单不存在的情况。</li>
+<li>发送成功，但是mq返回超时，导致事务回滚，出现数据不一致</li>
+</ol>
+<h2 id="方案二"><a href="#方案二" class="headerlink" title="方案二"></a>方案二</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Transactional</span></span><br><span class="line"><span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">createOrder</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">//执行下订单相关的业务流程,例如操作本地数据库落库相关代码</span></span><br><span class="line">    save();</span><br><span class="line">    <span class="comment">//生成事务消息唯一业务表示,将该业务表示组装到待发送的消息体中</span></span><br><span class="line">    <span class="comment">//往待发送消息表中插入一条记录,本次唯一消息发送业务工D,消息σso&#123;消息主题、消息tag、消息体&#125;、创建时间、发送状态</span></span><br><span class="line">    createMqTransactionalLog();</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="meta">@Scheduled</span></span><br><span class="line"><span class="function"><span class="keyword">private</span> <span class="keyword">void</span> <span class="title">sendMq</span><span class="params">()</span> </span>&#123;</span><br><span class="line">    <span class="comment">//同时需要引人定时机制，去扫描待发送消息记录,避免消息丢失。</span></span><br><span class="line"></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>方案二在方案一的基础上，增加了补偿机制。但是也引入了其他问题。</p>
+<ol>
+<li>消息有可能重复发送,但在消费端可以通过唯一业务编号来进行去重设计。</li>
+<li>实现过于复杂,为了避免极端情况下的消息丢失,需要使用定时任务。</li>
+</ol>
+<h2 id="方案三-RocketMq的官方推荐方式"><a href="#方案三-RocketMq的官方推荐方式" class="headerlink" title="方案三(RocketMq的官方推荐方式)"></a>方案三(RocketMq的官方推荐方式)</h2><p><strong>1. 使用rocketmq事务消息的producer发送消息</strong></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">@Transactional</span><br><span class="line">public void createOrder() &#123;</span><br><span class="line">    //执行下订单相关的业务流程,例如操作本地数据库落库相关代码</span><br><span class="line">    //生成事务消息唯一业务表示,将该业务表示组装到待发送的消息体中,方便消息消费端进行幂等消费。</span><br><span class="line">    save();</span><br><span class="line">    //调用消息客户端AP工,发送事务 prepare消息消费。</span><br><span class="line">    producer.sendMessageInTransaction(msg, null);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>2.实现事务的监听接口</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">TransactionListenerImpl</span> <span class="keyword">implements</span> <span class="title">TransactionListener</span> </span>&#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> LocalTransactionState <span class="title">executeLocalTransaction</span><span class="params">(Message msg, Object arg)</span> </span>&#123;</span><br><span class="line">        <span class="comment">//从消息中获取业务唯一ID。</span></span><br><span class="line">        String bizUniNo=msg. getUserproperty(<span class="string">" bizUniNo"</span>);</span><br><span class="line">        <span class="comment">//将 bizUniNo 入库,表名: t_message_transaction,表结构 bizUniNo(主键),业务类型。</span></span><br><span class="line">        <span class="keyword">return</span> LocalTransactionState.UNKNOW</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> LocalTransactionState <span class="title">checkLocalTransaction</span><span class="params">(MessageExt msg)</span> </span>&#123;</span><br><span class="line">        <span class="comment">//从数据库中查询t_message_transaction表中是否存在bizUniNo</span></span><br><span class="line">        <span class="comment">//如果存在 返回事务已提交的状态</span></span><br><span class="line">        <span class="comment">//如果不存在 返回事务LocalTransactionState.UNKNOW</span></span><br><span class="line">        <span class="comment">//超过重试次数，返回事务回滚</span></span><br><span class="line">        <span class="keyword">return</span> LocalTransactionState.COMMIT_MESSAGE;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Transactionlistener实现要点如下</p>
+<p>execute LocalTransaction:该方法主要是设置本地事务状态,与业务方代码在一个事务中,故在这里,主要是向 t_message_transaction添加一条记录,在事务回査时,如果存在记录,就认为是该消息需要提交,其返回值建议返还 LocalTransactionState.UNKNOW。</p>
+<p>checkLocaltransaction:该方法主要是告知 RocketMQ消息是需要提交还是回滚,如果本地事务表( t_message_transaction)存在记录,则认为提交;如果不存在,可以设置回査次数,如果指定次数内还是未査到消息,则回滚,否则返回未知。 </p>
+<h1 id="事务消息使用上的限制"><a href="#事务消息使用上的限制" class="headerlink" title="事务消息使用上的限制"></a>事务消息使用上的限制</h1><ol>
+<li><strong>事务消息不支持延时消息和批量消息。</strong></li>
+<li>为了避免单个消息被检查太多次而导致半队列消息累积，我们默认将单个消息的检查次数限制为 15 次，但是用户可以通过 Broker 配置文件的 <code>transactionCheckMax</code>参数来修改此限制。如果已经检查某条消息超过 N 次的话（ N = <code>transactionCheckMax</code> ） 则 Broker 将丢弃此消息，并在默认情况下同时打印错误日志。用户可以通过重写 <code>AbstractTransactionCheckListener</code> 类来修改这个行为。</li>
+<li>事务消息将在 Broker 配置文件中的参数 transactionMsgTimeout 这样的特定时间长度之后被检查。当发送事务消息时，用户还可以通过设置用户属性 CHECK_IMMUNITY_TIME_IN_SECONDS 来改变这个限制，该参数优先于 <code>transactionMsgTimeout</code> 参数。</li>
+<li><strong>事务性消息可能不止一次被检查或消费。</strong></li>
+<li>提交给用户的目标主题消息可能会失败，目前这依日志的记录而定。它的高可用性通过 RocketMQ 本身的高可用性机制来保证，如果希望确保事务消息不丢失、并且事务完整性得到保证，建议使用同步的双重写入机制。</li>
+<li>事务消息的生产者 ID 不能与其他类型消息的生产者 ID 共享。与其他类型的消息不同，事务消息允许反向查询、MQ服务器能通过它们的生产者 ID 查询到消费者。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mq/" rel="tag"># mq</a>
+              <a href="/tags/rocketmq/" rel="tag"># rocketmq</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/08/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/rocketmq/rocketmq04_Consumer/" rel="prev" title="rocketmq04_Consumer">
+      <i class="fa fa-chevron-left"></i> rocketmq04_Consumer
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/06/10/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis01_%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/" rel="next" title="redis01_数据结构">
+      redis01_数据结构 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#事务消息简介"><span class="nav-number">1.</span> <span class="nav-text">事务消息简介</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#RocketMQ事务消息流程概要"><span class="nav-number">2.</span> <span class="nav-text">RocketMQ事务消息流程概要</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#事务消息发送及提交"><span class="nav-number">2.1.</span> <span class="nav-text">事务消息发送及提交</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#补偿流程"><span class="nav-number">2.2.</span> <span class="nav-text">补偿流程</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#RocketMQ事务消息设计"><span class="nav-number">3.</span> <span class="nav-text">RocketMQ事务消息设计</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#事务消息在一阶段对用户不可见"><span class="nav-number">3.1.</span> <span class="nav-text">事务消息在一阶段对用户不可见</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Commit和Rollback操作以及Op消息的引入"><span class="nav-number">3.2.</span> <span class="nav-text">Commit和Rollback操作以及Op消息的引入</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Op消息的存储和对应关系"><span class="nav-number">3.3.</span> <span class="nav-text">Op消息的存储和对应关系</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Half消息的索引构建"><span class="nav-number">3.4.</span> <span class="nav-text">Half消息的索引构建</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#如何处理二阶段失败的消息？"><span class="nav-number">3.5.</span> <span class="nav-text">如何处理二阶段失败的消息？</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#事务消息实战"><span class="nav-number">4.</span> <span class="nav-text">事务消息实战</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#方案一"><span class="nav-number">4.1.</span> <span class="nav-text">方案一</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#方案二"><span class="nav-number">4.2.</span> <span class="nav-text">方案二</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#方案三-RocketMq的官方推荐方式"><span class="nav-number">4.3.</span> <span class="nav-text">方案三(RocketMq的官方推荐方式)</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#事务消息使用上的限制"><span class="nav-number">5.</span> <span class="nav-text">事务消息使用上的限制</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

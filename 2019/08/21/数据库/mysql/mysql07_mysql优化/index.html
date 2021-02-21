@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="优化基础_explain详解explain命令可以帮助我们了解mysql的执行计划，当运行SQL语句时哪种策略预计会被优化器采用。">
+<meta name="keywords" content="mysql">
+<meta property="og:type" content="article">
+<meta property="og:title" content="mysql07_mysql优化">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;08&#x2F;21&#x2F;%E6%95%B0%E6%8D%AE%E5%BA%93&#x2F;mysql&#x2F;mysql07_mysql%E4%BC%98%E5%8C%96&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="优化基础_explain详解explain命令可以帮助我们了解mysql的执行计划，当运行SQL语句时哪种策略预计会被优化器采用。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_07_01.jpg">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_07_02.jpg">
+<meta property="og:updated_time" content="2020-06-04T00:39:13.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;mysql&#x2F;mysql_07_01.jpg">
+
+<link rel="canonical" href="http://yoursite.com/2019/08/21/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql07_mysql%E4%BC%98%E5%8C%96/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>mysql07_mysql优化 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/08/21/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql07_mysql%E4%BC%98%E5%8C%96/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          mysql07_mysql优化
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-21 20:30:00" itemprop="dateCreated datePublished" datetime="2019-08-21T20:30:00+08:00">2019-08-21</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-04 08:39:13" itemprop="dateModified" datetime="2020-06-04T08:39:13+08:00">2020-06-04</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mysql/" itemprop="url" rel="index"><span itemprop="name">mysql</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="优化基础-explain详解"><a href="#优化基础-explain详解" class="headerlink" title="优化基础_explain详解"></a>优化基础_explain详解</h1><p>explain命令可以帮助我们了解mysql的执行计划，当运行SQL语句时哪种策略预计会被优化器采用。</p>
+<a id="more"></a>
+
+<h2 id="explain-输出字段详解"><a href="#explain-输出字段详解" class="headerlink" title="explain 输出字段详解"></a>explain 输出字段详解</h2><figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; explain select * from servers;</span><br><span class="line">+----+-------------+---------+------+---------------+------+---------+------+------+-------+</span><br><span class="line">| id | select_type | table   | type | possible_keys | key  | key_len | ref  | rows | Extra |</span><br><span class="line">+----+-------------+---------+------+---------------+------+---------+------+------+-------+</span><br><span class="line">|  1 | SIMPLE      | servers | ALL  | NULL          | NULL | NULL    | NULL |    1 | NULL  |</span><br><span class="line">+----+-------------+---------+------+---------------+------+---------+------+------+-------+</span><br><span class="line">1 row in set (0.03 sec)</span><br></pre></td></tr></table></figure>
+<p>expain出来的信息有10列，分别是id、select_type、table、type、possible_keys、key、key_len、ref、rows、Extra,下面对这些字段出现的可能进行解释：</p>
+<h3 id="id"><a href="#id" class="headerlink" title="id"></a>id</h3><p>执行编号，标识select所属的行。如果在语句中没子查询或关联查询，只有唯一的select，每行都将显示1。否则，内层的select语句一般会顺序编号，对应于其在原始语句中的位置</p>
+<h3 id="select-type"><a href="#select-type" class="headerlink" title="select_type"></a>select_type</h3><p>显示本行是简单或复杂select。如果查询有任何复杂的子查询，则最外层标记为PRIMARY。</p>
+<ul>
+<li><strong>simple</strong>    简单子查询，不包含子查询和union</li>
+<li><strong>primary</strong>    包含union或者子查询，最外层的部分标记为primary</li>
+<li><strong>subquery</strong>    一般子查询中的子查询被标记为subquery，也就是位于select列表中的查询</li>
+<li><strong>derived</strong>    派生表——该临时表是从子查询派生出来的，位于form中的子查询</li>
+<li><strong>union</strong>    位于union中第二个及其以后的子查询被标记为union，第一个就被标记为primary如果是union位于from中则标记为derived</li>
+<li><strong>union result</strong>    用来从匿名临时表里检索结果的select被标记为union result</li>
+<li><strong>dependent union</strong>    顾名思义，首先需要满足UNION的条件，及UNION中第二个以及后面的SELECT语句，同时该语句依赖外部的查询</li>
+<li><strong>subquery</strong>    子查询中第一个SELECT语句</li>
+<li><strong>dependent subquery</strong>    和DEPENDENT UNION相对UNION一样</li>
+</ul>
+<h3 id="table"><a href="#table" class="headerlink" title="table"></a>table</h3><p>显示这一行的数据是关于哪张表的</p>
+<h3 id="type"><a href="#type" class="headerlink" title="type"></a>type</h3><p>表示MySQL在表中找到所需行的方式，又称“访问类型”。<br>常用的类型有： ALL, index,  range, ref, eq_ref, const, system, NULL（从左到右，性能从差到好）</p>
+<ul>
+<li><strong>ALL</strong>：Full Table Scan， MySQL将遍历全表以找到匹配的行</li>
+<li><strong>index</strong>: Full Index Scan，index与ALL区别为index类型只遍历索引树</li>
+<li><strong>range</strong>:只检索给定范围的行，使用一个索引来选择行</li>
+<li><strong>ref</strong>: 表示上述表的连接匹配条件，即哪些列或常量被用于查找索引列上的值</li>
+<li><strong>eq_ref</strong>: 类似ref，区别就在使用的索引是唯一索引，对于每个索引键值，表中只有一条记录匹配，简单来说，就是多表连接中使用primary key或者 unique key作为关联条件</li>
+<li><strong>const/system</strong>:当MySQL对查询某部分进行优化，并转换为一个常量时，使用这些类型访问。如将主键置于where列表中，MySQL就能将该查询转换为一个常量,system是const类型的特例，当查询的表只有一行的情况下，使用system</li>
+<li><strong>NULL</strong>: MySQL在优化过程中分解语句，执行时甚至不用访问表或索引，例如从一个索引列里选取最小值可以通过单独索引查找完成。</li>
+</ul>
+<h3 id="possible-keys"><a href="#possible-keys" class="headerlink" title="possible_keys"></a>possible_keys</h3><p>指出MySQL能使用哪个索引在表中找到记录，查询涉及到的字段上若存在索引，则<strong>该索引将被列出，但不一定被查询使用</strong></p>
+<h3 id="Key"><a href="#Key" class="headerlink" title="Key"></a>Key</h3><p><strong>key列显示MySQL实际决定使用的键（索引）</strong></p>
+<p>如果没有选择索引，键是NULL。要想强制MySQL使用或忽视possible_keys列中的索引，在查询中使用FORCE INDEX、USE INDEX或者IGNORE INDEX。</p>
+<h3 id="key-len"><a href="#key-len" class="headerlink" title="key_len"></a>key_len</h3><p>key_len列显示MySQL决定使用的键长度。如果键是NULL，则长度为NULL。使用的索引的长度。在不损失精确性的情况下，长度越短越好 。</p>
+<h3 id="ref"><a href="#ref" class="headerlink" title="ref"></a>ref</h3><p><strong>表示上述表的连接匹配条件</strong>，即哪些列或常量被用于查找索引列上的值</p>
+<h3 id="rows"><a href="#rows" class="headerlink" title="rows"></a>rows</h3><p>表示MySQL根据表统计信息及索引选用情况，<strong>估算的</strong>找到所需的记录所需要读取的行数。</p>
+<h3 id="Extra"><a href="#Extra" class="headerlink" title="Extra"></a>Extra</h3><p>该列包含MySQL解决查询的详细信息,有以下几种情况：</p>
+<ul>
+<li><p><strong>Using where</strong>:意味着全表扫描或者在查找使用索引的情况下，但是还有查询条件不在索引字段当中,<strong>表示mysql服务器将在存储引擎检索行后再进行过滤</strong></p>
+<blockquote>
+<p>1.查询条件中的相关列，不是索引字段， 全表扫描后，通过Using where过滤获取所需的数据。<br>2.（type=ref)非唯一性索引扫描，但是由于索引未覆盖所有查询条件(字段d并未包含在聚集索引PRIMARY中)，在存储引擎返回记录后，仍然需要过滤数据  </p>
+<ol start="3">
+<li>WHERE筛选条件不是索引的前导列，导致不走索引，而走全表扫描。</li>
+</ol>
+</blockquote>
+</li>
+<li><p><strong>Using index</strong>:表示直接访问索引就能够获取到所需要的数据（索引覆盖），不需要通过索引回表。</p>
+</li>
+<li><p><strong>Using index condition</strong>：Extra为Using Index Condition 表示会先条件过滤索引，过滤完索引后找到所有符合索引条件的数据行，随后用 WHERE 子句中的其他条件去过滤这些数据行。(使用索引下推)</p>
+</li>
+<li><p><strong>Using temporary</strong>:表示MySQL需要使用临时表来存储结果集，常见于排序和分组查询</p>
+</li>
+<li><p><strong>Using filesort</strong>:MySQL中无法利用索引完成的排序操作称为“文件排序”</p>
+</li>
+<li><p><strong>Using join buffer</strong>:改值强调了在获取连接条件时没有使用索引，并且需要连接缓冲区来存储中间结果。如果出现了这个值，那应该注意，根据查询的具体情况可能需要添加索引来改进能。</p>
+</li>
+<li><p><strong>Impossible where</strong>:这个值强调了where语句会导致没有符合条件的行。</p>
+</li>
+<li><p><strong>Select tables optimized away</strong>:这个值意味着仅通过使用索引，优化器可能仅从聚合函数结果中返回一行</p>
+</li>
+</ul>
+<p>参考：<br><a href="https://dev.mysql.com/doc/refman/5.7/en/explain-output.html" target="_blank" rel="noopener">https://dev.mysql.com/doc/refman/5.7/en/explain-output.html</a></p>
+<h1 id="mysql查询优化器"><a href="#mysql查询优化器" class="headerlink" title="mysql查询优化器"></a>mysql查询优化器</h1><h2 id="查询优化器的局限性"><a href="#查询优化器的局限性" class="headerlink" title="查询优化器的局限性"></a>查询优化器的局限性</h2><h3 id="UNION的限制"><a href="#UNION的限制" class="headerlink" title="UNION的限制"></a>UNION的限制</h3><p>如果希望UNI0N的各个子句能够根据LIMT只取部分结果集,或者希望能够先排好序再合并结果集的话,就需要在 UNION的各个子句中分别使用这些子句。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">first</span> <span class="keyword">name</span> <span class="keyword">last</span> <span class="keyword">name</span></span><br><span class="line"><span class="keyword">FROM</span> Sakila. actor</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">last</span> <span class="keyword">name</span>)</span><br><span class="line"><span class="keyword">UNION</span> <span class="keyword">ALL</span></span><br><span class="line">(<span class="keyword">SELECT</span> <span class="keyword">first</span> <span class="keyword">name</span>, <span class="keyword">last</span> <span class="keyword">name</span></span><br><span class="line"><span class="keyword">FROM</span> sakila customer</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> <span class="keyword">last</span> <span class="keyword">name</span>)</span><br><span class="line"><span class="keyword">LIMIT</span> <span class="number">20</span></span><br></pre></td></tr></table></figure>
+<p>这条查询将会把 actor中的200条记录和 customer表中的599条记录存放在一个临时表中,然后再从临时表中取出前20条。</p>
+<p><strong>优化方式</strong>：可以通过在UN0N的两个子查询中分别加上一个LIMIT20来减少临时表中的数据。</p>
+<h3 id="索引合并优化-Index-merge-optimization"><a href="#索引合并优化-Index-merge-optimization" class="headerlink" title="索引合并优化(Index merge optimization)"></a>索引合并优化(Index merge optimization)</h3><p>MySQL在 5.0版本中引入新特性：索引合并优化(Index merge optimization)，当查询中单张表可以使用多个索引时，同时扫描多个索引并将扫描结果进行合并。</p>
+<p>该新特性可以在一些场景中大幅度提升查询性能，但受限于MySQL糟糕的统计信息，也导致很多场景查询性能极差甚至导致数据库崩溃。</p>
+<h3 id="并行执行"><a href="#并行执行" class="headerlink" title="并行执行"></a>并行执行</h3><p>MySQL无法利用多核特性来并行执行查询。很多其他的关系型数据库能够提供这个特性,但是 MySQL做不到。</p>
+<h3 id="最大值最小值优化"><a href="#最大值最小值优化" class="headerlink" title="最大值最小值优化"></a>最大值最小值优化</h3><p>对于MIN()和MX()査询, MySQL的优化做得并不好。这里有一个例子:</p>
+<figure class="highlight"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; SELECT MIN(actor_id)FROM sakila. actor WHERE first name ='PENELOPE';</span><br></pre></td></tr></table></figure>
+
+<p>因为在 first name字段上并没有索引,因此 My SQL将会进行一次全表扫描。如果MySQL能够进行主键扫描,那么理论上,当MyQL读到第一个满足条件的记录的时候,就是我们需要找的最小值了,因为主键是严格按照 actor id字段的大小顺序排列的。但是 MySQL这时只会做全表扫描。</p>
+<h3 id="在同一个表上查询和更新"><a href="#在同一个表上查询和更新" class="headerlink" title="在同一个表上查询和更新"></a>在同一个表上查询和更新</h3><p>MySQL不允许对同一张表同时进行查询和更新。下面是一个无法运行的SQL,虽然这是一个符合标准的SQL语句。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; UPDATE tbl as outer_tbl</span><br><span class="line"><span class="keyword">SET</span> cnt = (</span><br><span class="line"><span class="keyword">SELECT</span> <span class="keyword">count</span> (*) <span class="keyword">FROM</span> tbl <span class="keyword">AS</span> inner_ tbl</span><br><span class="line"><span class="keyword">WHERE</span> inner_tbl.type =  outer_tbl.type</span><br><span class="line"></span><br><span class="line"><span class="keyword">ERROR</span> <span class="number">1093</span>(HYooo): You cant specify target <span class="keyword">table</span> <span class="keyword">outer</span> tbl <span class="keyword">for</span> <span class="keyword">update</span> <span class="keyword">in</span> <span class="keyword">FROM</span> clause</span><br></pre></td></tr></table></figure>
+<p>可以利用临时表绕过</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">mysql&gt; UPDATE tbl</span><br><span class="line">INNER JOIN(</span><br><span class="line">		<span class="keyword">SELECT</span> <span class="keyword">type</span>, <span class="keyword">count</span> (*) <span class="keyword">As</span> cnt</span><br><span class="line">		<span class="keyword">FROM</span> tbl</span><br><span class="line">		<span class="keyword">GROUP</span> <span class="keyword">BY</span> <span class="keyword">type</span></span><br><span class="line">	)<span class="keyword">AS</span> der <span class="keyword">USING</span>(<span class="keyword">type</span>)</span><br><span class="line"> <span class="keyword">set</span> tbl.cnt=der.cnt</span><br></pre></td></tr></table></figure>
+
+<h2 id="优化器提示-hint"><a href="#优化器提示-hint" class="headerlink" title="优化器提示(hint)"></a>优化器提示(hint)</h2><p>如果对优化器选择的执行计划不满意,可以使用优化器提供的几个提示(hint)来控制最终的执行计划。</p>
+<h3 id="STRAIGHT-JOIN"><a href="#STRAIGHT-JOIN" class="headerlink" title="STRAIGHT JOIN"></a>STRAIGHT JOIN</h3><p>这个提示可以放置在 SELECT语句的 SELECT关键字之后,也可以放置在任何两个关联表的名字之间。</p>
+<p>第一个用法是让查询中所有的表按照在语句中出现的顺序进行关联。</p>
+<p>第二个用法则是固定其前后两个表的关联顺序。</p>
+<p><strong>MySQL可能会花费大量时间在“ statistics”状态,加上这个提示则会大大减少优化器的搜索空间。</strong></p>
+<h3 id="SQL-SMALL-RESULT-和-SQL-BIG-RESULT"><a href="#SQL-SMALL-RESULT-和-SQL-BIG-RESULT" class="headerlink" title="SQL_SMALL_RESULT 和 SQL_BIG_RESULT"></a>SQL_SMALL_RESULT 和 SQL_BIG_RESULT</h3><p>这两个提示只对 SELECT语句有效。它们告诉优化器对 GROUP BY或者 DISTINCT查询如何使用临时表及排序。 SQL_SMALL_RESULT告诉优化器结果集会很小,可以将结果集放在内存中的索引临时表,以避免排序操作。</p>
+<p>如果是 SQL_BIG_RESULT,则告诉优化器结果集可能会非常大,建议使用磁盘临时表做排序操作。</p>
+<h3 id="FOR-UPDATE-和-LOCK-IN-SHARE-MODE"><a href="#FOR-UPDATE-和-LOCK-IN-SHARE-MODE" class="headerlink" title="FOR UPDATE 和 LOCK IN SHARE MODE"></a>FOR UPDATE 和 LOCK IN SHARE MODE</h3><p><strong>严格来说这两个不是优化器提示</strong></p>
+<p>这两个提示主要控制 SELECT语句的锁机制,但<strong>只对实现了行级锁的存储引擎有效。</strong></p>
+<p>唯一内置的支持这两个提示的引擎就是 InnodB。另外需要记住的是,这两个提示会让某些优化无法正常使用,例如索引覆盖扫描。</p>
+<h3 id="USE-INDEX、-IGNORE-INDEX-和-FORCE-INDEX"><a href="#USE-INDEX、-IGNORE-INDEX-和-FORCE-INDEX" class="headerlink" title="USE INDEX、 IGNORE INDEX 和 FORCE INDEX"></a>USE INDEX、 IGNORE INDEX 和 FORCE INDEX</h3><p>这几个提示会告诉优化器使用或者不使用哪些索引来查询记录。</p>
+<p>在MyQL5.1和之后的版本可以通过新增选项FOR ORDER BY 和FOR GROUP BY来指定是否对排序和分组有效。</p>
+<p>FORCE INDEX和 USE INDEX基本相同。<br><strong>当发现优化器选择了错误的索引,可以使用该提示。</strong></p>
+<h1 id="慢sql优化"><a href="#慢sql优化" class="headerlink" title="慢sql优化"></a>慢sql优化</h1><p>如何发现慢sql？</p>
+<ol>
+<li>带有慢sql统计的数据库连接池 如druid连接池</li>
+<li>mysql自带慢sql日志</li>
+<li>中间件监控，如cat</li>
+</ol>
+<h2 id="慢sql排查-优化数据访问"><a href="#慢sql排查-优化数据访问" class="headerlink" title="慢sql排查(优化数据访问)"></a>慢sql排查(优化数据访问)</h2><p>优化慢sql主要从两点出发：</p>
+<ol>
+<li>是否请求了不需要的数据</li>
+<li>是否扫描额外记录</li>
+</ol>
+<h3 id="是否请求了不需要的数据？"><a href="#是否请求了不需要的数据？" class="headerlink" title="是否请求了不需要的数据？"></a>是否请求了不需要的数据？</h3><p>一个表中存在text字段，但是这个字段一般情况下不需要访问，但是业务代码中每次都请求了这个字段，造成大量冗余数据返回，产生慢sql。</p>
+<h3 id="是否扫描额外记录"><a href="#是否扫描额外记录" class="headerlink" title="是否扫描额外记录"></a>是否扫描额外记录</h3><p>这个主要是用explain去评估sql扫描的行数，和执行计划。然后通过重写查询的方式来实现优化。(重写查询的方式下文会详细说明)</p>
+<h2 id="优雅地使用索引"><a href="#优雅地使用索引" class="headerlink" title="优雅地使用索引"></a>优雅地使用索引</h2><p>利用索引对mysql进行优化是最常见的优化方式。</p>
+<ol>
+<li><strong>利用覆盖索引避免回表</strong></li>
+<li><strong>利用索引排序</strong></li>
+<li><strong>利用索引下推</strong> 在索引上过滤数据</li>
+</ol>
+<p>只有当索引的列顺序和ORDER BY子句的顺序完全一致,并且所有列的排序方向(倒序或正序)都一样时, MySQL才能够使用索引来对结果做排序。</p>
+<p>如果查询需要关联多张表,则只有当ORDER BY子句引用的字段全部为第一个表时,才能使用索引做排序。</p>
+<p>ORDER BY子句和查找型查询的限制是一样的:需要满足索引的最左前缀的要求;否则,MySQL都需要执行排序操作,而无法利用索引排序。</p>
+<p><strong>索引如果存在范围查询，那么索引有序性无法利用</strong>，如：WHERE a&gt;10 ORDER BY b; 索引a_b无法排序。</p>
+<h3 id="使用前缀索引"><a href="#使用前缀索引" class="headerlink" title="使用前缀索引"></a>使用前缀索引</h3><p>MySQL是支持前缀索引的，你可以定义字符串的一部分作为索引。默认地，如果你创建索引的语句不指定前缀长度，那么索引就会包含整个字符串。</p>
+<p><strong>使用前缀索引就用不上覆盖索引对查询性能的优化了</strong>，这也是你在选择是否使用前缀索引时需要考虑的一个因素。</p>
+<p><strong>字符串本身前缀区分度不够的问题</strong></p>
+<ol>
+<li><strong>倒序存储</strong>，再创建前缀索引，用于绕过字符串本身前缀的区分度不够的问题；</li>
+<li>是使用hash字段。你可以在表上再创建一个整数字段，来保存身份证的校验码，同时在这个字段上创建索引。</li>
+<li>直接创建完整索引，这样可能比较占用空间；</li>
+</ol>
+<h2 id="索引失效"><a href="#索引失效" class="headerlink" title="索引失效"></a>索引失效</h2><p>索引失效指优化器放弃走索引的情况。</p>
+<h3 id="对索引字段做函数操作"><a href="#对索引字段做函数操作" class="headerlink" title="对索引字段做函数操作"></a>对索引字段做函数操作</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> <span class="keyword">count</span>(*) <span class="keyword">from</span> tradelog <span class="keyword">where</span> <span class="keyword">month</span>(t_modified)=<span class="number">7</span>;</span><br></pre></td></tr></table></figure>
+<p><strong>对索引字段做函数操作，可能会破坏索引值的有序性，因此优化器就决定放弃走树搜索功能。</strong></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> * <span class="keyword">from</span> tradelog <span class="keyword">where</span> <span class="keyword">id</span> + <span class="number">1</span> = <span class="number">10000</span></span><br></pre></td></tr></table></figure>
+
+<p>对于不改变有序性的函数，也不会考虑使用索引。对于这个SQL语句，这个加1操作并不会改变有序性，但是MySQL优化器还是不能用id索引快速定位到9999这一行。所以，需要你在写SQL语句的时候，手动改写成 where id = 10000 -1才可以。</p>
+<h3 id="隐式类型转换导致索引失效"><a href="#隐式类型转换导致索引失效" class="headerlink" title="隐式类型转换导致索引失效"></a>隐式类型转换导致索引失效</h3><p>gmt_modified &gt; ‘2020-05-01 00:00:00’  会将字符串转为时间戳，会走索引</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">错误的例子：<span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">test</span> <span class="keyword">where</span> tu_mdn=<span class="number">13333333333</span>;</span><br><span class="line"></span><br><span class="line">正确的例子：<span class="keyword">select</span> * <span class="keyword">from</span> <span class="keyword">test</span> <span class="keyword">where</span> tu_mdn=<span class="string">'13333333333'</span>;</span><br></pre></td></tr></table></figure>
+
+<p>如何避免隐式类型转换?<br>只有当清楚的知道隐式类型转换的规则，才能从根本上避免产生隐式类型转换。</p>
+<h3 id="隐式字符编码转换"><a href="#隐式字符编码转换" class="headerlink" title="隐式字符编码转换"></a>隐式字符编码转换</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`tradelog`</span> (</span><br><span class="line">  <span class="string">`id`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`tradeid`</span> <span class="built_in">varchar</span>(<span class="number">32</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`operator`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`t_modified`</span> datetime <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  PRIMARY <span class="keyword">KEY</span> (<span class="string">`id`</span>),</span><br><span class="line">  <span class="keyword">KEY</span> <span class="string">`tradeid`</span> (<span class="string">`tradeid`</span>),</span><br><span class="line">  <span class="keyword">KEY</span> <span class="string">`t_modified`</span> (<span class="string">`t_modified`</span>)</span><br><span class="line">) <span class="keyword">ENGINE</span>=<span class="keyword">InnoDB</span> <span class="keyword">DEFAULT</span> <span class="keyword">CHARSET</span>=utf8mb4;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`trade_detail`</span> (</span><br><span class="line">  <span class="string">`id`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`tradeid`</span> <span class="built_in">varchar</span>(<span class="number">32</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`trade_step`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>, <span class="comment">/*操作步骤*/</span></span><br><span class="line">  <span class="string">`step_info`</span> <span class="built_in">varchar</span>(<span class="number">32</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>, <span class="comment">/*步骤信息*/</span></span><br><span class="line">  PRIMARY <span class="keyword">KEY</span> (<span class="string">`id`</span>),</span><br><span class="line">  <span class="keyword">KEY</span> <span class="string">`tradeid`</span> (<span class="string">`tradeid`</span>)</span><br><span class="line">) <span class="keyword">ENGINE</span>=<span class="keyword">InnoDB</span> <span class="keyword">DEFAULT</span> <span class="keyword">CHARSET</span>=utf8;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> d.* <span class="keyword">from</span> tradelog l, trade_detail d <span class="keyword">where</span> d.tradeid=l.tradeid <span class="keyword">and</span> l.id=<span class="number">2</span>;</span><br></pre></td></tr></table></figure>
+
+<p>字符集utf8mb4是utf8的超集，所以当这两个类型的字符串在做比较的时候，MySQL内部的操作是，先把utf8字符串转成utf8mb4字符集，再做比较。</p>
+<p>导致没有走trade_detail表的tradeid索引</p>
+<h3 id="其他索引失效"><a href="#其他索引失效" class="headerlink" title="其他索引失效"></a>其他索引失效</h3><ul>
+<li>mysql中使用不等于!= 或者&lt;&gt; 会走全表扫描</li>
+<li>索引字段上使用 is null / is not null 判断时，会导致索引失效而转向全表扫描</li>
+<li>like “%abc”，通配符在最左侧</li>
+</ul>
+<h2 id="排序优化"><a href="#排序优化" class="headerlink" title="排序优化"></a>排序优化</h2><p>无论如何排序都是一个成本很高的操作,所以从性能角度考虑,应<strong>尽可能避免排序或者尽可能避免对大量数据进行排序。</strong></p>
+<p>当不能使用索引生成排序结果的时候，My SQL需要自己进行排序,如果数据量小则在内存中进行,如果数据量大<br>则需要使用磁盘,不过 MySQL将这个过程统一称为文件排序( filesort),即使完全是内存排序不需要任何磁盘文件时也是如此。</p>
+<p>如果需要排序的数据量小于“排序缓冲区”, My SQL使用内存进行“快速排序”操作。如果内存不够排序,那么 MySQL会先将数据分块,对每个独立的块使用“快速排序”进行排序,并将各个块的排序结果存放在磁盘上,然后将各个排好序的块进行合并( merge),最后返回排序结果。</p>
+<p>mysql有两种排序算法：</p>
+<ol>
+<li>全字段排序(单次传输排序)</li>
+<li>rowid排序(两次传输排序)</li>
+</ol>
+<p>定义一个表:</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> <span class="keyword">TABLE</span> <span class="string">`t`</span> (</span><br><span class="line">  <span class="string">`id`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`city`</span> <span class="built_in">varchar</span>(<span class="number">16</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`name`</span> <span class="built_in">varchar</span>(<span class="number">16</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`age`</span> <span class="built_in">int</span>(<span class="number">11</span>) <span class="keyword">NOT</span> <span class="literal">NULL</span>,</span><br><span class="line">  <span class="string">`addr`</span> <span class="built_in">varchar</span>(<span class="number">128</span>) <span class="keyword">DEFAULT</span> <span class="literal">NULL</span>,</span><br><span class="line">  PRIMARY <span class="keyword">KEY</span> (<span class="string">`id`</span>),</span><br><span class="line">  <span class="keyword">KEY</span> <span class="string">`city`</span> (<span class="string">`city`</span>)</span><br><span class="line">) <span class="keyword">ENGINE</span>=<span class="keyword">InnoDB</span>;</span><br><span class="line"></span><br><span class="line"><span class="keyword">select</span> city,<span class="keyword">name</span>,age <span class="keyword">from</span> t <span class="keyword">where</span> city=<span class="string">'杭州'</span> <span class="keyword">order</span> <span class="keyword">by</span> <span class="keyword">name</span> <span class="keyword">limit</span> <span class="number">1000</span>  ;</span><br></pre></td></tr></table></figure>
+
+<h3 id="全字段排序"><a href="#全字段排序" class="headerlink" title="全字段排序"></a>全字段排序</h3><p>全字段排序执行流程如下</p>
+<ol>
+<li>初始化sort_buffer，确定放入name、city、age这三个字段；</li>
+<li>从索引city找到第一个满足city=’杭州’条件的主键id，也就是图中的ID_X；</li>
+<li>到主键id索引取出整行，取name、city、age三个字段的值，存入sort_buffer中；</li>
+<li>从索引city取下一个记录的主键id；</li>
+<li>重复步骤3、4直到city的值不满足查询条件为止，对应的主键id也就是图中的ID_Y；</li>
+<li>对sort_buffer中的数据按照字段name做快速排序；</li>
+<li>按照排序结果取前1000行返回给客户端。</li>
+</ol>
+<p><strong>先读取查询所需要的所有列,然后再根据给定列进行排序,最后直接返回排序结果。</strong><br> <img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_07_01.jpg" alt=""></p>
+<h3 id="rowid排序"><a href="#rowid排序" class="headerlink" title="rowid排序"></a>rowid排序</h3><p>如果sort_buffer里面要放的字段数太多，这样内存里能够同时放下的行数很少，要分成很多个临时文件，排序的性能会很差。</p>
+<p><strong>max_length_for_sort_data</strong>，是MySQL中专门控制用于排序的行数据的长度的一个参数。它的意思是，如果单行的长度超过这个值，MySQL就认为单行太大，要换一个算法。</p>
+<p>rowid排序执行流程：</p>
+<ol>
+<li>初始化sort_buffer，确定放入两个字段，即name和id；</li>
+<li>从索引city找到第一个满足city=’杭州’条件的主键id，也就是图中的ID_X；</li>
+<li>到主键id索引取出整行，取name、id这两个字段，存入sort_buffer中；</li>
+<li>从索引city取下一个记录的主键id；</li>
+<li>重复步骤3、4直到不满足city=’杭州’条件为止，也就是图中的ID_Y；</li>
+<li>对sort_buffer中的数据按照字段name进行排序；</li>
+<li>遍历排序结果，取前1000行，并按照id的值回到原表中取出city、name和age三个字段返回给客户端</li>
+</ol>
+<p><strong>读取行指针和需要排序的字段,对其进行排序,然后再根据排序结果读取所需要的数据行。</strong><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/mysql/mysql_07_02.jpg" alt=""></p>
+<h3 id="优化"><a href="#优化" class="headerlink" title="优化"></a>优化</h3><p>mysql排序优化主要从这几个方面入手</p>
+<ol>
+<li>是否能用索引排序</li>
+<li>控制sort_buffer大小和max_length_for_sort_data大小</li>
+</ol>
+<h2 id="重构查询"><a href="#重构查询" class="headerlink" title="重构查询"></a>重构查询</h2><h3 id="切分查询"><a href="#切分查询" class="headerlink" title="切分查询"></a>切分查询</h3><p>例如一条删除语句，需要删除10W条数据，为了避免一次锁住很多数据，占满事务日志导致阻塞，可以切分为多个删除语句，每次删除1000条。</p>
+<h3 id="分解关联查询"><a href="#分解关联查询" class="headerlink" title="分解关联查询"></a>分解关联查询</h3><p>如果查询非常复杂，可以考虑将复杂查询拆分为多个简单查询，在应用层做关联，因为应用层可以通过加机器来线性提升性能，但是数据库的资源比较宝贵，无法直接扩展。</p>
+<ul>
+<li><strong>让缓存的效率更高</strong>。许多应用程序可以方便地缓存单表查询对应的结果对象。</li>
+<li>将查询分解后,执行单个查询可以<strong>减少锁的竞争</strong>。</li>
+<li><strong>在应用层做关联,可以更容易对数据库进行拆分,更容易做到高性能和可扩展。</strong></li>
+<li>查询本身效率也可能会有所提升。</li>
+<li>可以减少冗余记录的查询。在应用层做关联查询,意味着对于某条记录应用只需要查询一次,而在数据库中做关联查询,则可能需要重复地访问一部分数据。</li>
+<li>这样做相当于<strong>在应用中实现了哈希关联,而不是使用 MySQL的嵌套循环关联。</strong></li>
+</ul>
+<h2 id="优化特定类型的查询"><a href="#优化特定类型的查询" class="headerlink" title="优化特定类型的查询"></a>优化特定类型的查询</h2><h3 id="优化Limit分页"><a href="#优化Limit分页" class="headerlink" title="优化Limit分页"></a>优化Limit分页</h3><p>可以使用<strong>延迟关联</strong>，来优化limit分页</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">mysql&gt; SELECT film.film_id, film.description</span><br><span class="line"> FROM sakila.film</span><br><span class="line">INNER JOIN (</span><br><span class="line"><span class="keyword">SELECT</span> film <span class="keyword">id</span> <span class="keyword">FROM</span> sakila film</span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> title <span class="keyword">LIMIT</span> <span class="number">50</span>, <span class="number">5</span> )</span><br><span class="line"><span class="keyword">AS</span> lim <span class="keyword">USING</span> (film <span class="keyword">id</span>)</span><br></pre></td></tr></table></figure>
+
+<p><strong>有时候也可以将Limit查询转换为已知位置的查询,让 MySQL通过范围扫描获得到对应的结果。</strong></p>
+<h3 id="优化UNION查询"><a href="#优化UNION查询" class="headerlink" title="优化UNION查询"></a>优化UNION查询</h3><p>MySQL总是通过创建并填充临时表的方式来执行UNI0N査询。因此很多优化策略在UNION查询中都没法很好地使用。<strong>经常需要手工地将 WHERE、 LIMIT、ORDER BY等子句“下<br>推”到UNI0N的各个子查询中,以便优化器可以充分利用这些条件进行优化</strong></p>
+<p><strong>除非确实需要服务器消除重复的行,否则就一定要使用UNION ALL,这一点很重要。</strong></p>
+<p>如果没有ALL关键字, MySQL会给临时表加上 DISTINCT选项,这会导致对整个临时表的数据做唯一性检查。这样做的代价非常高。</p>
+<h3 id="优化关联查询"><a href="#优化关联查询" class="headerlink" title="优化关联查询"></a>优化关联查询</h3><ol>
+<li>用小表做驱动表</li>
+<li>被关联的表要建好索引</li>
+</ol>
+<h3 id="优化COUNT-查询"><a href="#优化COUNT-查询" class="headerlink" title="优化COUNT()查询"></a>优化COUNT()查询</h3><p>在不同的MySQL引擎中，count(*)有不同的实现方式。</p>
+<p>MyISAM引擎把一个表的总行数存在了磁盘上，因此执行count(*)的时候会直接返回这个数，效率很高；</p>
+<p>InnoDB是索引组织表，主键索引树的叶子节点是数据，而普通索引树的叶子节点是主键值。所以，普通索引树比主键索引树小很多。对于count(*)这样的操作，遍历哪个索引树得到的结果逻辑上都是一样的。因此，MySQL优化器会找到最小的那棵树来遍历。</p>
+<h4 id="不同的count用法"><a href="#不同的count用法" class="headerlink" title="不同的count用法"></a>不同的count用法</h4><p>count()是一个聚合函数，对于返回的结果集，一行行地判断，如果count函数的参数不是NULL，累计值就加1，否则不加。最后返回累计值。</p>
+<p>count(*)、count(主键id)和count(1) 都表示返回满足条件的结果集的总行数；而count(字段），则表示返回满足条件的数据行里面，参数“字段”不为NULL的总个数。</p>
+<p>至于分析性能差别的时候，你可以记住这么几个原则：</p>
+<ol>
+<li>server层要什么就给什么；</li>
+<li>InnoDB只给必要的值；</li>
+<li>现在的优化器只优化了count(*)的语义为“取行数”，其他“显而易见”的优化并没有做。</li>
+</ol>
+<p>对于count(主键id)来说，InnoDB引擎会遍历整张表，把每一行的id值都取出来，返回给server层。server层拿到id后，判断是不可能为空的，就按行累加。</p>
+<p>对于count(1)来说，InnoDB引擎遍历整张表，但不取值。server层对于返回的每一行，放一个数字“1”进去，判断是不可能为空的，按行累加。</p>
+<p>单看这两个用法的差别的话，你能对比出来，<strong>count(1)执行得要比count(主键id)快。因为从引擎返回id会涉及到解析数据行，以及拷贝字段值的操作。</strong></p>
+<p>对于count(字段)来说：</p>
+<ol>
+<li>如果这个“字段”是定义为not null的话，一行行地从记录里面读出这个字段，判断不能为null，按行累加；</li>
+<li>如果这个“字段”定义允许为null，那么执行的时候，判断到有可能是null，还要把值取出来再判断一下，不是null才累加。</li>
+</ol>
+<p>但是count(*)是例外，并不会把全部字段取出来，而是专门做了优化，不取值。</p>
+<p><strong>按照效率排序的话，count(字段)&lt;count(主键id)&lt;count(1)≈count(*)。</strong></p>
+<h3 id="distinct-和-group-by的性能比较"><a href="#distinct-和-group-by的性能比较" class="headerlink" title="distinct 和 group by的性能比较"></a>distinct 和 group by的性能比较</h3><p>如果表t的字段a上没有索引，那么下面这两条语句：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> a <span class="keyword">from</span> t <span class="keyword">group</span> <span class="keyword">by</span> a <span class="keyword">order</span> <span class="keyword">by</span> <span class="literal">null</span>;</span><br><span class="line"><span class="keyword">select</span> <span class="keyword">distinct</span> a <span class="keyword">from</span> t;</span><br></pre></td></tr></table></figure>
+<p>这种group by的写法，并不是SQL标准的写法。标准的group by语句，是需要在select部分加一个聚合函数。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">select</span> a,<span class="keyword">count</span>(*) <span class="keyword">from</span> t <span class="keyword">group</span> <span class="keyword">by</span> a <span class="keyword">order</span> <span class="keyword">by</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">这条语句的逻辑是：按照字段a分组，计算每组的a出现的次数。在这个结果里，由于做的是聚合计算，相同的a只出现一次。</span><br></pre></td></tr></table></figure>
+
+<p>没有了count(*)以后，也就是不再需要执行“计算总数”的逻辑时，第一条语句的逻辑就变成是：按照字段a做分组，相同的a的值只返回一行。而这就是distinct的语义，所以不需要执行聚合函数时，distinct 和group by这两条语句的语义和执行流程是相同的，因此执行性能也相同。</p>
+<p>这两条语句的执行流程是下面这样的。</p>
+<ol>
+<li>创建一个临时表，临时表有一个字段a，并且在这个字段a上创建一个唯一索引；</li>
+<li>遍历表t，依次取数据插入临时表中：<ul>
+<li>如果发现唯一键冲突，就跳过；</li>
+<li>否则插入成功；</li>
+</ul>
+</li>
+<li>遍历完成后，将临时表作为结果集返回给客户端</li>
+</ol>
+<h1 id="mysql配置优化"><a href="#mysql配置优化" class="headerlink" title="mysql配置优化"></a>mysql配置优化</h1><p>mysql配置主要交给dba来配置，一般不会出现问题，如果出现问题则需要根据实际问题，来判断和哪个mysql配置有关，并查看相关配置。主要是这么几个方面，脏页的缓存池大小，刷盘的速度，一般频繁刷盘会导致mysql抖动。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mysql/" rel="tag"># mysql</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/08/20/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql06_sql%E6%89%A7%E8%A1%8C%E5%8E%9F%E7%90%86/" rel="prev" title="mysql06_sql执行原理">
+      <i class="fa fa-chevron-left"></i> mysql06_sql执行原理
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/22/%E6%95%B0%E6%8D%AE%E5%BA%93/mysql/mysql08_%E6%89%A9%E5%B1%95&%E9%AB%98%E5%8F%AF%E7%94%A8/" rel="next" title="mysql08_扩展&高可用">
+      mysql08_扩展&高可用 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#优化基础-explain详解"><span class="nav-number">1.</span> <span class="nav-text">优化基础_explain详解</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#explain-输出字段详解"><span class="nav-number">1.1.</span> <span class="nav-text">explain 输出字段详解</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#id"><span class="nav-number">1.1.1.</span> <span class="nav-text">id</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#select-type"><span class="nav-number">1.1.2.</span> <span class="nav-text">select_type</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#table"><span class="nav-number">1.1.3.</span> <span class="nav-text">table</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#type"><span class="nav-number">1.1.4.</span> <span class="nav-text">type</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#possible-keys"><span class="nav-number">1.1.5.</span> <span class="nav-text">possible_keys</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Key"><span class="nav-number">1.1.6.</span> <span class="nav-text">Key</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#key-len"><span class="nav-number">1.1.7.</span> <span class="nav-text">key_len</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#ref"><span class="nav-number">1.1.8.</span> <span class="nav-text">ref</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#rows"><span class="nav-number">1.1.9.</span> <span class="nav-text">rows</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#Extra"><span class="nav-number">1.1.10.</span> <span class="nav-text">Extra</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#mysql查询优化器"><span class="nav-number">2.</span> <span class="nav-text">mysql查询优化器</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#查询优化器的局限性"><span class="nav-number">2.1.</span> <span class="nav-text">查询优化器的局限性</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#UNION的限制"><span class="nav-number">2.1.1.</span> <span class="nav-text">UNION的限制</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#索引合并优化-Index-merge-optimization"><span class="nav-number">2.1.2.</span> <span class="nav-text">索引合并优化(Index merge optimization)</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#并行执行"><span class="nav-number">2.1.3.</span> <span class="nav-text">并行执行</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#最大值最小值优化"><span class="nav-number">2.1.4.</span> <span class="nav-text">最大值最小值优化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#在同一个表上查询和更新"><span class="nav-number">2.1.5.</span> <span class="nav-text">在同一个表上查询和更新</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#优化器提示-hint"><span class="nav-number">2.2.</span> <span class="nav-text">优化器提示(hint)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#STRAIGHT-JOIN"><span class="nav-number">2.2.1.</span> <span class="nav-text">STRAIGHT JOIN</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SQL-SMALL-RESULT-和-SQL-BIG-RESULT"><span class="nav-number">2.2.2.</span> <span class="nav-text">SQL_SMALL_RESULT 和 SQL_BIG_RESULT</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#FOR-UPDATE-和-LOCK-IN-SHARE-MODE"><span class="nav-number">2.2.3.</span> <span class="nav-text">FOR UPDATE 和 LOCK IN SHARE MODE</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#USE-INDEX、-IGNORE-INDEX-和-FORCE-INDEX"><span class="nav-number">2.2.4.</span> <span class="nav-text">USE INDEX、 IGNORE INDEX 和 FORCE INDEX</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#慢sql优化"><span class="nav-number">3.</span> <span class="nav-text">慢sql优化</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#慢sql排查-优化数据访问"><span class="nav-number">3.1.</span> <span class="nav-text">慢sql排查(优化数据访问)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#是否请求了不需要的数据？"><span class="nav-number">3.1.1.</span> <span class="nav-text">是否请求了不需要的数据？</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#是否扫描额外记录"><span class="nav-number">3.1.2.</span> <span class="nav-text">是否扫描额外记录</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#优雅地使用索引"><span class="nav-number">3.2.</span> <span class="nav-text">优雅地使用索引</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#使用前缀索引"><span class="nav-number">3.2.1.</span> <span class="nav-text">使用前缀索引</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#索引失效"><span class="nav-number">3.3.</span> <span class="nav-text">索引失效</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#对索引字段做函数操作"><span class="nav-number">3.3.1.</span> <span class="nav-text">对索引字段做函数操作</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#隐式类型转换导致索引失效"><span class="nav-number">3.3.2.</span> <span class="nav-text">隐式类型转换导致索引失效</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#隐式字符编码转换"><span class="nav-number">3.3.3.</span> <span class="nav-text">隐式字符编码转换</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#其他索引失效"><span class="nav-number">3.3.4.</span> <span class="nav-text">其他索引失效</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#排序优化"><span class="nav-number">3.4.</span> <span class="nav-text">排序优化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#全字段排序"><span class="nav-number">3.4.1.</span> <span class="nav-text">全字段排序</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#rowid排序"><span class="nav-number">3.4.2.</span> <span class="nav-text">rowid排序</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#优化"><span class="nav-number">3.4.3.</span> <span class="nav-text">优化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#重构查询"><span class="nav-number">3.5.</span> <span class="nav-text">重构查询</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#切分查询"><span class="nav-number">3.5.1.</span> <span class="nav-text">切分查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#分解关联查询"><span class="nav-number">3.5.2.</span> <span class="nav-text">分解关联查询</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#优化特定类型的查询"><span class="nav-number">3.6.</span> <span class="nav-text">优化特定类型的查询</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#优化Limit分页"><span class="nav-number">3.6.1.</span> <span class="nav-text">优化Limit分页</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#优化UNION查询"><span class="nav-number">3.6.2.</span> <span class="nav-text">优化UNION查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#优化关联查询"><span class="nav-number">3.6.3.</span> <span class="nav-text">优化关联查询</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#优化COUNT-查询"><span class="nav-number">3.6.4.</span> <span class="nav-text">优化COUNT()查询</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#不同的count用法"><span class="nav-number">3.6.4.1.</span> <span class="nav-text">不同的count用法</span></a></li></ol></li><li class="nav-item nav-level-3"><a class="nav-link" href="#distinct-和-group-by的性能比较"><span class="nav-number">3.6.5.</span> <span class="nav-text">distinct 和 group by的性能比较</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#mysql配置优化"><span class="nav-number">4.</span> <span class="nav-text">mysql配置优化</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="计算机网络英特网协议栈计算机网络五层网络模型：应用层、运输层、网络层、数据链路层、物理层。七层ISO OSI参考模型：在应用层和运输层中多两层，表示层和会话层。">
+<meta name="keywords" content="计算机网络">
+<meta property="og:type" content="article">
+<meta property="og:title" content="计算机网络相关">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2018&#x2F;12&#x2F;03&#x2F;%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C&#x2F;%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E7%AC%94%E8%AE%B0&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="计算机网络英特网协议栈计算机网络五层网络模型：应用层、运输层、网络层、数据链路层、物理层。七层ISO OSI参考模型：在应用层和运输层中多两层，表示层和会话层。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;a_top_down_approach_1-23.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;atda_2-19.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;atda_2-21.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;atda_3-39.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;atda_3-40.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;adta_3-41.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;adta_3-42.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;atda_7-4.png">
+<meta property="og:updated_time" content="2020-04-12T12:43:17.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;a_top_down_approach&#x2F;a_top_down_approach_1-23.png">
+
+<link rel="canonical" href="http://yoursite.com/2018/12/03/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E7%AC%94%E8%AE%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>计算机网络相关 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2018/12/03/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E7%AC%94%E8%AE%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          计算机网络相关
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2018-12-03 21:00:00" itemprop="dateCreated datePublished" datetime="2018-12-03T21:00:00+08:00">2018-12-03</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-04-12 20:43:17" itemprop="dateModified" datetime="2020-04-12T20:43:17+08:00">2020-04-12</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" itemprop="url" rel="index"><span itemprop="name">计算机网络</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="计算机网络"><a href="#计算机网络" class="headerlink" title="计算机网络"></a>计算机网络</h1><h2 id="英特网协议栈"><a href="#英特网协议栈" class="headerlink" title="英特网协议栈"></a>英特网协议栈</h2><p>计算机网络五层网络模型：应用层、运输层、网络层、数据链路层、物理层。<br>七层ISO OSI参考模型：在应用层和运输层中多两层，表示层和会话层。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/a_top_down_approach_1-23.png" alt=""></p>
+<a id="more"></a>
+<p>五层网络模型：</p>
+<ul>
+<li>应用层 http FTP DNS 数据称为报文</li>
+<li>运输层 TCP UDP协议 数据称为报文段</li>
+<li>网络层 IP协议和路由选择协议 数据报</li>
+<li>链路层  以太网 Wifi和电联接入网的DOCSIS协议</li>
+<li>物理层 双绞铜线 光纤</li>
+</ul>
+<h1 id="应用层"><a href="#应用层" class="headerlink" title="应用层"></a>应用层</h1><h2 id="http"><a href="#http" class="headerlink" title="http"></a>http</h2><p>web的应用层是<strong>超文本传输协议(HyperText Transfer<br> Protocol,HTTP)</strong>。</p>
+<p> HTTP服务器不保存服关于客户的任何信息，所以http是一个<strong>无状态协议。</strong></p>
+<p><strong>浏览器对同一个网站会建立多少tcp连接？</strong></p>
+<p>用户能够配置现代浏览器以控制并行度。在默认方式下,大部分浏览器打开5~10个并行的TCP连接,而每条连接处理一个请求响应事务。如果用户愿意,最大并行连接数可以设置为1,区样10条连接就会串行建立。</p>
+<h2 id="FTP"><a href="#FTP" class="headerlink" title="FTP"></a>FTP</h2><p>一个FTP连接，有两个TCP连接，一个是控制连接，一个是数据连接。</p>
+<h2 id="DNS"><a href="#DNS" class="headerlink" title="DNS"></a>DNS</h2><p>DNS是域名系统( Domain Name System,DNs):</p>
+<ol>
+<li>一个由分层的DNs服务器(DNS<br>server)实现的分布式数据库</li>
+<li>一个使得主机能够查询分布式数据库的应用层协议</li>
+</ol>
+<p>DNS服务器通常是运行BIND( Berkeley Internet Name Domain)软件[BND2012]的UNIX机器。</p>
+<p><strong>DNS协议运行在UDP之上,使用53号端口</strong></p>
+<h3 id="DNS工作原理"><a href="#DNS工作原理" class="headerlink" title="DNS工作原理"></a>DNS工作原理</h3><ul>
+<li>同一台用户主机上运行着DNS应用的客户端。</li>
+<li>浏览器从上述URL中抽取出主机名<a href="http://www.homeschool.edu,并将这台主机名传给DNS应用的客户端。" target="_blank" rel="noopener">www.homeschool.edu,并将这台主机名传给DNS应用的客户端。</a></li>
+<li>DNS客户向DNS服务器发送一个包含主机名的请求。</li>
+<li>DNS客户最终会收到一份回答报文,其中含有对应于该主机名的P地址。</li>
+<li>一旦浏览器接收到来自DNS的该IP地址,它能够向位于该mP地址80端口的HTTP服务器进程发起一个TCP连接。</li>
+</ul>
+<h3 id="DNS主要服务"><a href="#DNS主要服务" class="headerlink" title="DNS主要服务"></a>DNS主要服务</h3><ol>
+<li>域名解析</li>
+<li>主机别名</li>
+<li>邮件服务器别名</li>
+<li>负载均衡 一个域名可以有多个ip</li>
+</ol>
+<h3 id="三种类型DNS服务器"><a href="#三种类型DNS服务器" class="headerlink" title="三种类型DNS服务器"></a>三种类型DNS服务器</h3><ul>
+<li><p><strong>根DNS服务器</strong> 根DNS服务器中的每个都视为单个的服务器,但每台“服务器”实际上是一个冗余服务器的网络,以提供安全性和可靠性。</p>
+</li>
+<li><p><strong>顶级域(DNS)服务器</strong> 这些服务器负责顶级域名如com、org、net、edu和gov以及所有国家的顶级域名如uk、fr、ca和jp。Verisign Global Registry Services公司维护com顶级域的TLD服务器; Educause公司维护edu顶级域的TD服务器。</p>
+</li>
+<li><p><strong>权威DNS服务器</strong> 在因特网上具有公共可访问主机(如Web服务器和邮件服务器)的每个组织机构必须提供公共可访问的DNS记录,这些记录将这些主机的名字映射为地址。一个组织机构的权威DNS服务器收藏了这些DNS记录。一个组织机构能够选择实现它自己的权威DNS服务器以保存这些记录。</p>
+</li>
+<li><p><strong>本地DNS服务器</strong> 主要用来缓存DNS，避免重复请求根DNS服务器。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/atda_2-19.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/atda_2-21.png" alt=""> </p>
+</li>
+</ul>
+<h2 id="p2p"><a href="#p2p" class="headerlink" title="p2p"></a>p2p</h2><h1 id="传输层"><a href="#传输层" class="headerlink" title="传输层"></a>传输层</h1><h2 id="运输层多路复用-多路分解"><a href="#运输层多路复用-多路分解" class="headerlink" title="运输层多路复用 多路分解"></a>运输层多路复用 多路分解</h2><p>在接收端,运输层检查这些字段,标识出接收套接字,进而将报文段定向到该套接字。将运输层报文段中的数据交付到正确的套接字的工作称为<strong>多路分解( demultiplexing)</strong></p>
+<p>在源主机从不同套接字中收集数据块,并为每个数据块封装上首部信息(这将在以后用于分解)从而生成报文段,然后将报文段传递到网络层，所有这些工作称为<strong>多路复用</strong></p>
+<p>为了说明分解的工作过程,可以再以前面一节的家庭进行类比。每一个孩子通过他们的<strong>名字(端口号)</strong>来标识。当Bi从邮递员处收到一批信件,并通过查看收信人名字而将信件亲手交付给他的兄弟姐妹们时,他执行的就是一个分解操作。当An从兄弟姐妹们那里收集信件并将它们交给邮递员时,她执行的就是一个多路复用操作。</p>
+<p>端口号是一个16比特的数,其大小在0<del>65535之间。0</del>1023范围的端口号称为周知端口号( well-known port<br>lumber),是受限制的,这是指它们保留给诸如HTP(它使用端口号80)和FTP(它使用端口号21)之类的周知应用层协议来使用。</p>
+<h2 id="tcp"><a href="#tcp" class="headerlink" title="tcp"></a>tcp</h2><p>tcp特点</p>
+<ul>
+<li>可靠数据传输，tcp保证正确地、顺序地将数据从发送进程交付给接进程</li>
+<li>提供<strong>拥塞控制</strong>，tcp通过调节发送端的发送速率实现。</li>
+<li>面向连接 ，发送数据之前必须要先相互握手 建立连接。</li>
+<li>全双工服务，即连接双方的进程可以在此连接上同时进行报文收发。</li>
+</ul>
+<h3 id="三次握手"><a href="#三次握手" class="headerlink" title="三次握手"></a>三次握手</h3><ul>
+<li><p>第一步:客户端的TCP首先向服务器端的TCP发送一个特殊的TCP报文段。该报文段中不包含应用层数据。但是在报文段的首部(参见图3-29)中的一个标志位(即SYN比特)被置为1。因此,这个特殊报文段被称为SYN报文段。另外,客户会随机地选择一个初始序号( client isn),并将此编号放置于该起始的 TCP SYN报文段的序号字段中。该报文段会被封装在一个IP数据报中,并发送给服务器。</p>
+</li>
+<li><p>第二步:一旦包含 TCP SYN报文段的P数据报到达服务器主机(假定它的确到达了!),服务器会从该数据报中提取出 TCP SYN报文段,为该TCP连接分配TCP缓存和变量,并向该客户TCP发送允许连接的报文段。(我们将在第8章看到,在完成三次握手的第三步之前分配这些缓存和变量,使得TCP易于受到称为SYN洪泛<br>的拒绝服务攻击。)这个允许连接的报文段也不包含应用层数据。但是,在报文段的首部却包含3个重要的信息。首先,SYN比特被置为1。其次,该TCP报文段首部的确认号字段被置为 client isn+1。最后,服务器选择自己的初始序号( server_isn),并将其放置到TCP报文段首部的序号字段中。这个允许连接的报文段实际上表明了:“我收到了你发起建立连接的SYN分组,该分组带有初始序号client isn。我同意建立该连接。我自己的初始序号是 server Isn。”该允许连接的报文段有时被称为 SYNACK报文段( SYNACK segment)。</p>
+</li>
+<li><p>第三步:在收到 SYNACK报文段后,客户也要给该连接分配缓存和变量。客户主机则向服务器发送另外一个报文段;这最后一个报文段对服务器的允许连接的报文段进行了确认(该客户通过将值 server Isn+1放置到TCP报文段首部的确认字段中来完成此项工作)。因为连接已经建立了,所以该SYN比特被置为0。该三次握手的第三个阶段可以在报文段负载中携带客户到服务器的数据。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/atda_3-39.png" alt=""></p>
+</li>
+</ul>
+<h3 id="四次挥手"><a href="#四次挥手" class="headerlink" title="四次挥手"></a>四次挥手</h3><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/atda_3-40.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/adta_3-41.png" alt=""></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/adta_3-42.png" alt=""></p>
+<h3 id="SYN攻击"><a href="#SYN攻击" class="headerlink" title="SYN攻击"></a>SYN攻击</h3><p><strong>为什么tcp需要四次挥手</strong><br>因为tcp是全双工的，即连接双方的进程可以在此连接上同时进行报文收发。</p>
+<p><strong>安全的tcp–ssl</strong><br>SSL称为安全套接字层，SL不是与TCP和UDP在相同层次上的第三种因特网<br>运输协议,而是一种对TCP的加强,<strong>这种强化是在用层上实现的。</strong></p>
+<p><a href="https://juejin.im/post/5d9c284b518825095879e7a5" target="_blank" rel="noopener">参考 https://juejin.im/post/5d9c284b518825095879e7a5</a></p>
+<h2 id="udp"><a href="#udp" class="headerlink" title="udp"></a>udp</h2><p>udp特点：</p>
+<ul>
+<li>不可靠数据传输，只管发送不管收到没</li>
+<li>流量不可调节，无拥塞控制</li>
+</ul>
+<h1 id="CDN原理"><a href="#CDN原理" class="headerlink" title="CDN原理"></a>CDN原理</h1><p>内容分发网( Content Distribution Network,CDN)。<br>CDN管理分布在多个地理位置上的服务器,在它的服务器中存储视频(和其他类型的Wcb内容,包括文档、图片和音频)的副本,并且所有试图将每个用户请求定向到一个将提供最好的用户体验的CDN位置。CDN可以是专用CDN( private CDN),即它由内容提供商自己所拥有;例如,谷歌的CDN分发 You Tube视频和其他类型的内容。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/a_top_down_approach/atda_7-4.png" alt=""></p>
+<ol>
+<li>用户访问NetCinema的Web网页</li>
+<li>当用户点击链接<a href="http://video.netcinema.com/6Y7B23V时,该用户主机发送了一个对于video.neteinema.com的DNS请求。" target="_blank" rel="noopener">http://video.netcinema.com/6Y7B23V时,该用户主机发送了一个对于video.neteinema.com的DNS请求。</a></li>
+<li>用户的本地DNS服务器(LDNS)中继该DNS请求到一台用于 NetCinema的权威DNS服务器,该服务器观察到主机名 video.netcinema. com中的字符串“vide”。为了将该DNS请求移交给 KingCDN, NetCinema权威DNs服务器并不返回一个IP地址,而是向LDNS返回一个KingCDN域的主机名,如a105.kingedn.com</li>
+<li>从这时起,DNS请求进入了 KingCDN专用DNS基础设施。用户的LDNS则发送第二个请求,此时是对a105. kingedn.com的DNs请求, KingCDN的DNs系统最终向LDNS返回 KingCDN内容服务器的IP地址。所以正是在这里,在 KingCDN的DNS系统中,指定了CDN服务器,客户将能够从这台服务器接收到它的内容</li>
+<li>LDNS向用户主机转发内容服务CDN结点的IP地址。</li>
+<li>一旦客户收到 KingCDN内容服务器的IP地址,它与具有该IP地址的服务器创建了一条直接的TCP连接,并且发出对该视频的 Http Get请求。如果使用了DASH,服务器将首先向客户发送具有URL列表的告示文件,每个URL对应视频的每个版本,并且客户将动态地选择来自不同版本的块。</li>
+</ol>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/" rel="tag"># 计算机网络</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/05/01/java%E5%AE%B9%E5%99%A8/java%E5%AE%B9%E5%99%A803_HashMap/" rel="prev" title="java容器03_Map">
+      <i class="fa fa-chevron-left"></i> java容器03_Map
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/03/28/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka01_%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/" rel="next" title="kafka01_基本概念">
+      kafka01_基本概念 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#计算机网络"><span class="nav-number">1.</span> <span class="nav-text">计算机网络</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#英特网协议栈"><span class="nav-number">1.1.</span> <span class="nav-text">英特网协议栈</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#应用层"><span class="nav-number">2.</span> <span class="nav-text">应用层</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#http"><span class="nav-number">2.1.</span> <span class="nav-text">http</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#FTP"><span class="nav-number">2.2.</span> <span class="nav-text">FTP</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DNS"><span class="nav-number">2.3.</span> <span class="nav-text">DNS</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#DNS工作原理"><span class="nav-number">2.3.1.</span> <span class="nav-text">DNS工作原理</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#DNS主要服务"><span class="nav-number">2.3.2.</span> <span class="nav-text">DNS主要服务</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#三种类型DNS服务器"><span class="nav-number">2.3.3.</span> <span class="nav-text">三种类型DNS服务器</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#p2p"><span class="nav-number">2.4.</span> <span class="nav-text">p2p</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#传输层"><span class="nav-number">3.</span> <span class="nav-text">传输层</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#运输层多路复用-多路分解"><span class="nav-number">3.1.</span> <span class="nav-text">运输层多路复用 多路分解</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#tcp"><span class="nav-number">3.2.</span> <span class="nav-text">tcp</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#三次握手"><span class="nav-number">3.2.1.</span> <span class="nav-text">三次握手</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#四次挥手"><span class="nav-number">3.2.2.</span> <span class="nav-text">四次挥手</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#SYN攻击"><span class="nav-number">3.2.3.</span> <span class="nav-text">SYN攻击</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#udp"><span class="nav-number">3.3.</span> <span class="nav-text">udp</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#CDN原理"><span class="nav-number">4.</span> <span class="nav-text">CDN原理</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

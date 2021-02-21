@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="基本概念">
+<meta name="keywords" content="mq,kafka">
+<meta property="og:type" content="article">
+<meta property="og:title" content="kafka01_基本概念">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;03&#x2F;28&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;mq&#x2F;kafka&#x2F;kafka01_%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="基本概念">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_scenes_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_scenes_02.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_basic_01.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_basic_02.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_basic_03.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_basic_04.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka_basic_05.png">
+<meta property="og:updated_time" content="2020-04-12T12:40:47.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;kafka&#x2F;kafka.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/03/28/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka01_%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>kafka01_基本概念 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/03/28/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka01_%E5%9F%BA%E6%9C%AC%E6%A6%82%E5%BF%B5/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          kafka01_基本概念
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-03-28 20:00:00" itemprop="dateCreated datePublished" datetime="2019-03-28T20:00:00+08:00">2019-03-28</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-04-12 20:40:47" itemprop="dateModified" datetime="2020-04-12T20:40:47+08:00">2020-04-12</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/" itemprop="url" rel="index"><span itemprop="name">mq</span></a>
+                </span>
+                  ，
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/mq/kafka/" itemprop="url" rel="index"><span itemprop="name">kafka</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="基本概念"><a href="#基本概念" class="headerlink" title="基本概念"></a>基本概念</h1><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka.png" alt=""></p>
+<a id="more"></a>
+
+<h1 id="消息队列常见使用场景"><a href="#消息队列常见使用场景" class="headerlink" title="消息队列常见使用场景"></a>消息队列常见使用场景</h1><ol>
+<li>异步<br>提高接口响应时间，耗时的流程用队列去异步做。</li>
+<li>削峰<br>每年的双十一，淘宝的很多活动都在 0 点的时候开启，大部分应用系统流 量会在瞬间猛增，这个时候如果没有缓冲机制，不可能承受住短时大流量 的冲 击 。通过利用消息队列，把大量的请求暂存起来，分散到相对长的一段时间内 处理，能大大提高系统的稳定性和用户体验。</li>
+<li>解耦<br>复杂的应用里会存在多个子系统，比如在电商应用中有订单系统、库存系统、物流系统 、 支付系统等。这个时候如果各个子系统之间的搞合性太高，整体系统的可用性就会大幅降低。多个低错误率的子系统强精合在一起，得到的 是一个高错误率的整体系统。<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_scenes_01.png" alt=""></li>
+<li>消息分发<br>在大数据时代，数据对很多公司来说就像金矿，公司需要依赖对数据的分析，进行用户画像 、精准推送、流程优化等各种操作，并且对处理的实时性要 求越来越高。数据是不断产生的，各个分析团队、算法团队都要依赖这些数据 来进行工作，这个时候有个可持久化的消息队列就非常重要。数据的产生方只需要把各自的数据写人一个消息队列即可数据使用方根据各自需求订阅感兴趣的数据。<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_scenes_02.png" alt=""></li>
+</ol>
+<h1 id="kafka基本概念与术语"><a href="#kafka基本概念与术语" class="headerlink" title="kafka基本概念与术语"></a>kafka基本概念与术语</h1><h2 id="发布订阅模型"><a href="#发布订阅模型" class="headerlink" title="发布订阅模型"></a>发布订阅模型</h2><p>发布订阅模型(publish/subscribe,或简称为pub/sub)，发布者将消息生产出来发送到指定的 topic中,所有订阅了该 topic的订阅者都可以接收到该topic下的所有消息。通常具有相同订阅 topic的所有订阅者将接收到同样的消息。</p>
+<ul>
+<li>topic:一个 topic可以理解为逻辑语义相近的消息的容器。</li>
+<li>发布者( publisher)：生产者</li>
+<li>订阅者( subscriber)：消费者<br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_basic_01.png" alt=""></li>
+</ul>
+<h2 id="消息"><a href="#消息" class="headerlink" title="消息"></a>消息</h2><p>kafka中消息由很多部分组成，Kafka消息格式共经历过3次变迁,它们被分别称为V0，V1和V2版本。图例为V1版本的消息格式。<br>我们只需要知道消息主要由三部分组成。</p>
+<ul>
+<li>Key:消息键,对消息做 partition时使用,即决定消息被保存在某 topIc下的哪个 partition</li>
+<li>Value:消息体,保存实际的消息数据。</li>
+<li>Timestamp:消息发送时间戳,用于流式处理及其他依赖时间的处理语义。如果不指定则取当前时间。</li>
+</ul>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_basic_02.png" alt=""></p>
+<h2 id="topic-partition"><a href="#topic-partition" class="headerlink" title="topic/partition"></a>topic/partition</h2><p>这张来自Kaka官网的 topic和 partition关系图非常清楚地表明了它们二者之间的关系:</p>
+<p>topic是由多个 partition组成的,而Kaka的 partition是不可修改的<strong>有序</strong>消息序列,也可以说是有序的消息日志。每个 partition有自己专属的 partition号,通常是从0开始的。用户对partition唯一能做的操作就是在消息序列的尾部追加写入消息。 partition上的每条消息都会被分配一个唯一序列号(offset)。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_basic_03.png" alt=""></p>
+<h2 id="offset"><a href="#offset" class="headerlink" title="offset"></a>offset</h2><p>前面说过, topic partition下的每条消息都被分配一个位移值。实际上,Kaka消费者端也有位移( offset)的概念,但一定要注意这两个offset属于不同的概念。</p>
+<p><strong>通过 topic、 partition和 offset，我们可以在Kaka集群中找到唯一对应的那条消息。</strong></p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_basic_04.png" alt=""></p>
+<h2 id="replica"><a href="#replica" class="headerlink" title="replica"></a>replica</h2><p>replica在kafka中称为副本，是分区日志的备份。<br>副本分为两类</p>
+<ul>
+<li>领导者副本( leader replica)</li>
+<li>追随者副本( follower replica)：<strong>不提供服务给客户端的</strong>,也就是说不负责响应客户端发来的消息写入和消息消费请求。它<strong>只是被动地向领导者副本( leader replica)获取数据</strong>,而一旦 leader replica所在的broker宕机, Kafka会从剩余的 replica中选举出新的 leader继续提供服务。</li>
+</ul>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/kafka/kafka_basic_05.png" alt=""></p>
+<h2 id="ISR"><a href="#ISR" class="headerlink" title="ISR"></a>ISR</h2><p>ISR的全称是 in-sync replica,翻译过来就是<strong>与leader replica保持同步的replica集合</strong>。</p>
+<h1 id="参考书籍"><a href="#参考书籍" class="headerlink" title="参考书籍"></a>参考书籍</h1><p>Apache kafka实战<br>Kafka权威指南</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/mq/" rel="tag"># mq</a>
+              <a href="/tags/kafka/" rel="tag"># kafka</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2018/12/03/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C/%E8%AE%A1%E7%AE%97%E6%9C%BA%E7%BD%91%E7%BB%9C%E7%AC%94%E8%AE%B0/" rel="prev" title="计算机网络相关">
+      <i class="fa fa-chevron-left"></i> 计算机网络相关
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/03/29/%E4%B8%AD%E9%97%B4%E4%BB%B6/mq/kafka/kafka02_producer/" rel="next" title="kafka02_producer">
+      kafka02_producer <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#基本概念"><span class="nav-number">1.</span> <span class="nav-text">基本概念</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#消息队列常见使用场景"><span class="nav-number">2.</span> <span class="nav-text">消息队列常见使用场景</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#kafka基本概念与术语"><span class="nav-number">3.</span> <span class="nav-text">kafka基本概念与术语</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#发布订阅模型"><span class="nav-number">3.1.</span> <span class="nav-text">发布订阅模型</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#消息"><span class="nav-number">3.2.</span> <span class="nav-text">消息</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#topic-partition"><span class="nav-number">3.3.</span> <span class="nav-text">topic/partition</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#offset"><span class="nav-number">3.4.</span> <span class="nav-text">offset</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#replica"><span class="nav-number">3.5.</span> <span class="nav-text">replica</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#ISR"><span class="nav-number">3.6.</span> <span class="nav-text">ISR</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考书籍"><span class="nav-number">4.</span> <span class="nav-text">参考书籍</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

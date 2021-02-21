@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="redis数据库概述redis数据库底层是用字典实现的，一个redisServer对象里面保存了redisDb对象(默认16个)。 redisDb对象通过字典保存所有的键值对。">
+<meta name="keywords" content="redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="redis04_数据库">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;06&#x2F;20&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;redis&#x2F;redis04_%E6%95%B0%E6%8D%AE%E5%BA%93&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="redis数据库概述redis数据库底层是用字典实现的，一个redisServer对象里面保存了redisDb对象(默认16个)。 redisDb对象通过字典保存所有的键值对。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_9-1.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_9-2.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_9-3.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_9-4.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_9-5.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_8-1.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_8-2.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_devops&#x2F;redis_devops_8-2.png">
+<meta property="og:updated_time" content="2020-06-03T03:45:56.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_9-1.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/06/20/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis04_%E6%95%B0%E6%8D%AE%E5%BA%93/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>redis04_数据库 | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/20/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis04_%E6%95%B0%E6%8D%AE%E5%BA%93/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          redis04_数据库
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-06-20 20:00:00" itemprop="dateCreated datePublished" datetime="2019-06-20T20:00:00+08:00">2019-06-20</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-03 11:45:56" itemprop="dateModified" datetime="2020-06-03T11:45:56+08:00">2020-06-03</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="redis数据库"><a href="#redis数据库" class="headerlink" title="redis数据库"></a>redis数据库</h1><h2 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h2><p>redis数据库底层是用字典实现的，一个redisServer对象里面保存了redisDb对象(默认16个)。</p>
+<p>redisDb对象通过字典保存所有的键值对。</p>
+<a id="more"></a>
+
+<h2 id="数据库对象结构"><a href="#数据库对象结构" class="headerlink" title="数据库对象结构"></a>数据库对象结构</h2><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_9-1.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_9-2.png" alt=""></p>
+<h2 id="数据库键空间"><a href="#数据库键空间" class="headerlink" title="数据库键空间"></a>数据库键空间</h2><p>redisDb结构的dict字典保存了数据库中所有键值对，这个字典称为<strong>键空间</strong></p>
+<p>当使用redis命令对数据库进行读写时，服务器不仅会对键空间执行指定的读写操作，还会执行一些额外的维护操作：</p>
+<ul>
+<li>读取一个键后，服务器会根据键是否存在，更新键空间命中(keyspace_hits)/不命中次数(keyspace_misses)。</li>
+<li>读取一个键后，会更新键的LRU时间</li>
+<li>如果服务器读取键发现该键已经过期，则会删除过期键。</li>
+<li>如果使用WATCH监控某个键，服务器对监控的键进行修改，键会被标记dirty</li>
+<li>每次修改一个键，会对dirty键计数器增1，这个计数器会触发持久化和复制操作。</li>
+<li>如果开启数据库通知功能，服务器会按配置发送相应数据库通知。</li>
+</ul>
+<p>键空间通知使得客户端可以通过订阅频道或模式， 来接收那些以某种方式改动了 Redis 数据集的事件。</p>
+<p>事件通过 Redis 的订阅与发布功能（pub/sub）来进行分发， 因此所有支持订阅与发布功能的客户端都可以在无须做任何修改的情况下， 直接使用键空间通知功能。</p>
+<p>因为 Redis 目前的订阅与发布功能采取的是发送即忘（fire and forget）策略， 所以如果你的程序需要可靠事件通知（reliable notification of events）， 那么目前的键空间通知可能并不适合你： 当订阅事件的客户端断线时， 它会丢失所有在断线期间分发给它的事件。</p>
+<h2 id="数据库通知"><a href="#数据库通知" class="headerlink" title="数据库通知"></a>数据库通知</h2><p>基于pub/sub功能实现的数据库通知。</p>
+<h1 id="过期策略"><a href="#过期策略" class="headerlink" title="过期策略"></a>过期策略</h1><p>redisDB结构的expires字典保存了数据库中所有键的过期时间，这个字典称为<strong>过期字典</strong>。</p>
+<ul>
+<li>过期字典的键是一个指针，指向键空间的某个键对象</li>
+<li>过期字典的值是个long long类型的整数，保存了毫秒精度的unix时间戳。</li>
+</ul>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_9-3.png" alt=""></p>
+<p><strong>redis为什么要维护一个过期字典，而不是把属性保存到对象里面去？</strong></p>
+<ol>
+<li>为了节省空间，如果在对象里面，那么对于没有过期时间的key来说，每次都会浪费一个long long类型的空间。不一定所有键都有过期时间,时间换空间之间做的权衡(个人观点)。</li>
+<li>和删除策略的实现有关，如果没有这个字典，定期删除的时候会很难命中设置了过期时间的键。</li>
+</ol>
+<h2 id="过期键删除策略"><a href="#过期键删除策略" class="headerlink" title="过期键删除策略"></a>过期键删除策略</h2><p>一般的删除策略有如下三种：</p>
+<ol>
+<li>定时删除，设置过期删除的时候同时创建一个定时器</li>
+<li>惰性删除，放任过期键不管，每次取键的时候，检查键是否过期，过期删除。</li>
+<li>定期删除，每隔一段时间，对数据库进行检查，删除里面的过期键。</li>
+</ol>
+<h3 id="定时删除"><a href="#定时删除" class="headerlink" title="定时删除"></a>定时删除</h3><p>定时删除策略对内存是最友好的，对CPU时间是最不友好的，会占用相当一部分cup时间。占用大量cpu时间，影响系统吞吐量。</p>
+<h3 id="惰性删除"><a href="#惰性删除" class="headerlink" title="惰性删除"></a>惰性删除</h3><p>每次取键的时候，做检查，如果过期就删除。对cpu时间最友好，对内存最不友好。浪费内存，有内存泄漏的风险。</p>
+<h3 id="定期删除"><a href="#定期删除" class="headerlink" title="定期删除"></a>定期删除</h3><p>定期删除是上面两种策略的整合和这种，每隔一段时间执行一次删除操作，并通过<strong>限制删除操作的时长和频率来减少对cpu时间的影响。</strong></p>
+<p>难点是确定删除操作的时长和频率，太频繁或者时间太长，还是会对cpu时间造成影响。太少或者时间太短，起不到删除键的效果，造成内存浪费。</p>
+<h2 id="redis的过期删除策略-4-0之前"><a href="#redis的过期删除策略-4-0之前" class="headerlink" title="redis的过期删除策略(4.0之前)"></a>redis的过期删除策略(4.0之前)</h2><p>redis通过惰性删除和定期删除两种策略配合，在CPU时间和避免空间浪费之间取得平衡。</p>
+<p>每当redis服务器周期性操作serverCron函数时，会调用activeExpireCycle函数去做定期删除的操作。</p>
+<ol>
+<li>每次运行，都从一定数量的数据库(默认16个数据库)中取出一定数量的随机键(默认每个数据库 20个键)进行检查，并删除过期键。</li>
+<li>全局变量current_db会记录当前的数据库进度，如果上次到10就结束了，这次会从11号数据库开始。</li>
+<li>随着函数的不断运行，服务器的所有数据库都会被检查一遍，current_db变量重置为0，然后又开始新一轮检查。</li>
+</ol>
+<h2 id="redis的过期删除策略-4-0"><a href="#redis的过期删除策略-4-0" class="headerlink" title="redis的过期删除策略(4.0)"></a>redis的过期删除策略(4.0)</h2><p>Redis作为一个单线程模型的服务，当执行一些耗时的命令时，比如使用DEL删除一个大key（元素超大的集合类型key），或者使用FLUSHDB 和 FLUSHALL 清空数据库，会造成redis阻塞，影响redis性能，甚至导致集群发生故障转移。另外redis在删除过期数据或因内存超过容量淘汰内存数据时，也有可能因为大key导致redis阻塞。</p>
+<p>为了解决以上问题，redis 4.0 引入了惰性删除lazyfree的机制，它可以将删除键或数据库的操作放在后台线程里执行，删除对象时只是进行逻辑删除，从而尽可能地避免服务器阻塞。</p>
+<p><strong>实现方式是异步线程，如果键过期，直接扔到异步线程中去删除，不会阻塞主线程。</strong></p>
+<p>原来是都在主线程里面做删除，现在是通过异步删除的方式实现。</p>
+<h2 id="AOF、RDB、和复制功能对过期键的处理"><a href="#AOF、RDB、和复制功能对过期键的处理" class="headerlink" title="AOF、RDB、和复制功能对过期键的处理"></a>AOF、RDB、和复制功能对过期键的处理</h2><h3 id="生成RDB文件时"><a href="#生成RDB文件时" class="headerlink" title="生成RDB文件时"></a>生成RDB文件时</h3><p>在执行SAVE命令或者BGSAVE命令创建一个新的RDB文件时，程序会对键做检查，过期键不会被保存到新的RDB文件中。</p>
+<h3 id="载入RDB文件"><a href="#载入RDB文件" class="headerlink" title="载入RDB文件"></a>载入RDB文件</h3><ul>
+<li>如果是主服务器模式运行，加载过程中会检查过期键，过期的会被过滤。</li>
+<li>从服务器模式运行，所有键都会被加载，不过进行主从同步的时候，从服务器的数据库会被清空。</li>
+</ul>
+<h3 id="AOF文件写入"><a href="#AOF文件写入" class="headerlink" title="AOF文件写入"></a>AOF文件写入</h3><p>当服务器以AOF持久化模式运行时，如果键没有被定期或者惰性删除，AOF文件不会因为这个过期键而产生影响。(只有被定期或者惰性删除后，AOF文件中会追加一条删除命令)</p>
+<h3 id="AOF重写"><a href="#AOF重写" class="headerlink" title="AOF重写"></a>AOF重写</h3><p>在执行AOF重写的过程中，程序会检查过期键，已过期的键不会写到AOF文中。</p>
+<h3 id="复制"><a href="#复制" class="headerlink" title="复制"></a>复制</h3><p>服务器在复制模式下，从服务器的过期键删除动作由主服务器控制，从服务器只有接到主服务器发来的DEL命令后，才会删除键。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_9-4.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_9-5.png" alt=""></p>
+<h1 id="内存淘汰机制-LRU-LFU"><a href="#内存淘汰机制-LRU-LFU" class="headerlink" title="内存淘汰机制(LRU,LFU)"></a>内存淘汰机制(LRU,LFU)</h1><p>在生产环境中我们是不允许 Redis出现交换行为的，为了限制最大使用内存，Redis 提 供了配置参数 maxmemory 来限制内存超出期望大小。</p>
+<p>当实际内存超出 maxmemory 时，Redis 提供了几种可选策略 (maxmemory-policy) 来让 用户自己决定该如何腾出新的空间以继续提供读写服务。</p>
+<h2 id="常见的内存淘汰算法"><a href="#常见的内存淘汰算法" class="headerlink" title="常见的内存淘汰算法"></a>常见的内存淘汰算法</h2><h3 id="FIFO（先入先出）"><a href="#FIFO（先入先出）" class="headerlink" title="FIFO（先入先出）"></a>FIFO（先入先出）</h3><p>FIFO (First In FIrst Out) 是最简单的算法，原理跟名字一样，“如果一个数据最先进入缓存中，则应该最早淘汰掉”。把缓存中的数据看成一个队列，最先加入的数据位于队列的头部，最后加入位于队列的尾部。当缓存空间不足需要执行缓存淘汰操作时，从队列的头部开始淘汰。</p>
+<h3 id="LRU（最近最少被使用）"><a href="#LRU（最近最少被使用）" class="headerlink" title="LRU（最近最少被使用）"></a>LRU（最近最少被使用）</h3><p>LRU (Least Recently Used) 的核心思想是基于“如果数据最近被访问过，它在未来也极有可能访问过”。同样把缓存看成一个队列，访问一个数据时，如果缓存中不存在，则插入到队列尾部；如果缓存中存在，则把该数据移动到队列尾部。当执行淘汰操作时，同样从队列的头部开始淘汰。 Java 中可以直接使用 LinkedHashMap 来实现。</p>
+<h3 id="LFU"><a href="#LFU" class="headerlink" title="LFU"></a>LFU</h3><p>LFU （Least Frequently Used）的核心思想是“如果一个数据在最近一段时间内使用次数很少，那么在将来一段时间内被使用的可能性也很小”，会记录数据访问的次数，当需要进行淘汰操作时，淘汰掉访问次数最少的数据。</p>
+<h3 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h3><ol>
+<li>2Q（Two Queues）：同时采用 FIFO 和 LRU 两个队列，首次访问数据时加入到 FIFO 队列中，如果数据在 FIFO 队列移除之前被再次访问，数据会被移动到 LRU 队列中。</li>
+<li>LRU-K ：是一种 LRU 算法的增强版，在 LRU 维护队列的基础上，再添加一个队列维护数据访问的次数，由原来访问 1 次会被添加到缓存中，改为访问 K 次才会被加入到缓存中。</li>
+<li>ARC：在IBM Almaden研究中心开发，这个缓存算法同时跟踪记录LFU和LRU，以及驱逐缓存条目，来获得可用缓存的最佳使用。</li>
+</ol>
+<h2 id="LRU"><a href="#LRU" class="headerlink" title="LRU"></a>LRU</h2><p>volatile-xxx 策略只会针对带过期时间的 key 进行淘汰，allkeys-xxx 策略会对所有的key 进行淘汰。</p>
+<h3 id="noeviction"><a href="#noeviction" class="headerlink" title="noeviction"></a>noeviction</h3><p>不会继续服务写请求 (DEL 请求可以继续服务)，读请求可以继续进行。<strong>这是默认的淘汰策略。</strong></p>
+<h3 id="volatile-lru"><a href="#volatile-lru" class="headerlink" title="volatile-lru"></a>volatile-lru</h3><p>尝试淘汰设置了过期时间的 key，最少使用的 key 优先被淘汰。没有设置过<br>期时间的 key 不会被淘汰。</p>
+<h3 id="volatile-ttl"><a href="#volatile-ttl" class="headerlink" title="volatile-ttl"></a>volatile-ttl</h3><p>跟上面一样，除了淘汰的策略不是 LRU，而是 key 的剩余寿命 ttl 的值，ttl<br>越小越优先被淘汰。</p>
+<h3 id="volatile-random"><a href="#volatile-random" class="headerlink" title="volatile-random"></a>volatile-random</h3><p>跟上面一样，不过淘汰的 key 是设置了过期时间的key 集合中随机的 key。</p>
+<h3 id="allkeys-lru"><a href="#allkeys-lru" class="headerlink" title="allkeys-lru"></a>allkeys-lru</h3><p>这个策略要淘汰的 key 对象是全体的 key 集合，而不只是过期的 key 集合。这意味着没有设置过期时间的 key 也会被淘汰。</p>
+<h3 id="allkeys-random"><a href="#allkeys-random" class="headerlink" title="allkeys-random"></a>allkeys-random</h3><p>跟上面一样，不过淘汰的策略是随机的 key。</p>
+<h2 id="LFU-4-0之后"><a href="#LFU-4-0之后" class="headerlink" title="LFU(4.0之后)"></a>LFU(4.0之后)</h2><p>Redis在4.0里引入了一个新的淘汰策略–LFU模式。</p>
+<p>LFU模式下，Redis对象头中的lru字段来存储key的热度。</p>
+<h3 id="volatile-lfu"><a href="#volatile-lfu" class="headerlink" title="volatile-lfu"></a>volatile-lfu</h3><h3 id="allkeys-lfu"><a href="#allkeys-lfu" class="headerlink" title="allkeys-lfu"></a>allkeys-lfu</h3><h1 id="理解内存"><a href="#理解内存" class="headerlink" title="理解内存"></a>理解内存</h1><h2 id="内存消耗"><a href="#内存消耗" class="headerlink" title="内存消耗"></a>内存消耗</h2><h3 id="内存使用统计"><a href="#内存使用统计" class="headerlink" title="内存使用统计"></a>内存使用统计</h3><p>要了解Redis自身使用内存的统计数据，可通过执行info memory 命令获取内存相关指标。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_8-1.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_8-2.png" alt=""></p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">需要重点关注的指标有：used_memory_rss和used_memory以及它们的比 值mem_fragmentation_ratio</span><br><span class="line"></span><br><span class="line">当mem_fragmentation_ratio&gt;1时，说明used_memory_rss-used_memory多出 的部分内存并没有用于数据存储，而是被内存碎片所消耗。</span><br><span class="line">如果两者相差很大，说明碎片率严重。</span><br><span class="line"></span><br><span class="line">当mem_fragmentation_ratio&lt;1时，这种情况一般出现在操作系统把Redis 内存交换（Swap）到硬盘导致。</span><br><span class="line">出现这种情况时要格外关注。</span><br></pre></td></tr></table></figure>
+
+<h3 id="内存消耗划分"><a href="#内存消耗划分" class="headerlink" title="内存消耗划分"></a>内存消耗划分</h3><p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_devops/redis_devops_8-2.png" alt=""></p>
+<p>出现高内存碎片问题时常见的解决方式如下：</p>
+<ul>
+<li>数据对齐：在条件允许的情况下尽量做数据对齐，比如数据尽量采用 数字类型或者固定长度字符串等，但是这要视具体的业务而定，有些场景无 法做到。</li>
+<li>安全重启：重启节点可以做到内存碎片重新整理，因此可以利用高可 用架构，如Sentinel或Cluster，将碎片率过高的主节点转换为从节点，进行 安全重启。</li>
+<li>Redis4版本之后开始支持内存碎片的清理</li>
+</ul>
+<p>清理内存碎片</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">//默认情况下自动清理碎片的参数是关闭的，可以按如下命令查看</span><br><span class="line">127.0.0.1:6379&gt; config get activedefrag </span><br><span class="line">1) &quot;activedefrag&quot;</span><br><span class="line">2) &quot;no&quot;</span><br><span class="line">//启动自动清理内存碎片</span><br><span class="line"></span><br><span class="line">127.0.0.1:6379&gt; config set  activedefrag yes</span><br><span class="line">OK</span><br></pre></td></tr></table></figure>
+
+
+<h2 id="内存分配"><a href="#内存分配" class="headerlink" title="内存分配"></a>内存分配</h2><p>Redis 为了保持自身结构的简单性，在内存分配这里直接做了甩手掌柜，将内存分配的 细节丢给了第三方内存分配库去实现。目前 Redis 可以使用 jemalloc(facebook) 库来管理内 存，也可以切换到 tcmalloc(google)。</p>
+<h2 id="内存优化"><a href="#内存优化" class="headerlink" title="内存优化"></a>内存优化</h2><h3 id="缩减键值对象"><a href="#缩减键值对象" class="headerlink" title="缩减键值对象"></a>缩减键值对象</h3><p>降低Redis内存使用最直接的方式就是缩减键（key）和值（value）的长 度。</p>
+<p>key长度：如在设计键时，在完整描述业务情况下，键值越短越好。如 user:{uid}:friends:notify:{fid}可以简化为u:{uid}:fs:nt:{fid}。</p>
+<p>value长度：值对象缩减比较复杂，常见需求是把业务对象序列化成二 进制数组放入Redis。<strong>首先应该在业务上精简业务对象</strong>，去掉不必要的属性 避免存储无效数据。其次在序列化工具选择上，应该选择更高效的序列化工 具来降低字节数组大小。</p>
+<h3 id="字符串优化"><a href="#字符串优化" class="headerlink" title="字符串优化"></a>字符串优化</h3><h3 id="编码优化"><a href="#编码优化" class="headerlink" title="编码优化"></a>编码优化</h3><h2 id="内存回收机制"><a href="#内存回收机制" class="headerlink" title="内存回收机制"></a>内存回收机制</h2><p>Redis 并不总是可以将空闲内存立即归还给操作系统。</p>
+<p>如果当前 Redis 内存有 10G，当你删除了 1GB 的 key 后，再去观察内存，你会发现 内存变化不会太大。原因是操作系统回收内存是以页为单位，如果这个页上只要有一个 key 还在使用，那么它就不能被回收。</p>
+<p>Redis 虽然无法保证立即回收已经删除的 key 的内存，但是它会重用那些尚未回收的空 闲内存。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/redis/" rel="tag"># redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/15/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis03_%E6%8C%81%E4%B9%85%E5%8C%96/" rel="prev" title="redis03_持久化">
+      <i class="fa fa-chevron-left"></i> redis03_持久化
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/06/25/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis05_%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86%E5%99%A8/" rel="next" title="redis05_事件处理器">
+      redis05_事件处理器 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#redis数据库"><span class="nav-number">1.</span> <span class="nav-text">redis数据库</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#概述"><span class="nav-number">1.1.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#数据库对象结构"><span class="nav-number">1.2.</span> <span class="nav-text">数据库对象结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#数据库键空间"><span class="nav-number">1.3.</span> <span class="nav-text">数据库键空间</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#数据库通知"><span class="nav-number">1.4.</span> <span class="nav-text">数据库通知</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#过期策略"><span class="nav-number">2.</span> <span class="nav-text">过期策略</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#过期键删除策略"><span class="nav-number">2.1.</span> <span class="nav-text">过期键删除策略</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#定时删除"><span class="nav-number">2.1.1.</span> <span class="nav-text">定时删除</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#惰性删除"><span class="nav-number">2.1.2.</span> <span class="nav-text">惰性删除</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#定期删除"><span class="nav-number">2.1.3.</span> <span class="nav-text">定期删除</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#redis的过期删除策略-4-0之前"><span class="nav-number">2.2.</span> <span class="nav-text">redis的过期删除策略(4.0之前)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#redis的过期删除策略-4-0"><span class="nav-number">2.3.</span> <span class="nav-text">redis的过期删除策略(4.0)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#AOF、RDB、和复制功能对过期键的处理"><span class="nav-number">2.4.</span> <span class="nav-text">AOF、RDB、和复制功能对过期键的处理</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#生成RDB文件时"><span class="nav-number">2.4.1.</span> <span class="nav-text">生成RDB文件时</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#载入RDB文件"><span class="nav-number">2.4.2.</span> <span class="nav-text">载入RDB文件</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AOF文件写入"><span class="nav-number">2.4.3.</span> <span class="nav-text">AOF文件写入</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#AOF重写"><span class="nav-number">2.4.4.</span> <span class="nav-text">AOF重写</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#复制"><span class="nav-number">2.4.5.</span> <span class="nav-text">复制</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#内存淘汰机制-LRU-LFU"><span class="nav-number">3.</span> <span class="nav-text">内存淘汰机制(LRU,LFU)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#常见的内存淘汰算法"><span class="nav-number">3.1.</span> <span class="nav-text">常见的内存淘汰算法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#FIFO（先入先出）"><span class="nav-number">3.1.1.</span> <span class="nav-text">FIFO（先入先出）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LRU（最近最少被使用）"><span class="nav-number">3.1.2.</span> <span class="nav-text">LRU（最近最少被使用）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#LFU"><span class="nav-number">3.1.3.</span> <span class="nav-text">LFU</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#其他"><span class="nav-number">3.1.4.</span> <span class="nav-text">其他</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LRU"><span class="nav-number">3.2.</span> <span class="nav-text">LRU</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#noeviction"><span class="nav-number">3.2.1.</span> <span class="nav-text">noeviction</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#volatile-lru"><span class="nav-number">3.2.2.</span> <span class="nav-text">volatile-lru</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#volatile-ttl"><span class="nav-number">3.2.3.</span> <span class="nav-text">volatile-ttl</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#volatile-random"><span class="nav-number">3.2.4.</span> <span class="nav-text">volatile-random</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#allkeys-lru"><span class="nav-number">3.2.5.</span> <span class="nav-text">allkeys-lru</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#allkeys-random"><span class="nav-number">3.2.6.</span> <span class="nav-text">allkeys-random</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#LFU-4-0之后"><span class="nav-number">3.3.</span> <span class="nav-text">LFU(4.0之后)</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#volatile-lfu"><span class="nav-number">3.3.1.</span> <span class="nav-text">volatile-lfu</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#allkeys-lfu"><span class="nav-number">3.3.2.</span> <span class="nav-text">allkeys-lfu</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#理解内存"><span class="nav-number">4.</span> <span class="nav-text">理解内存</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#内存消耗"><span class="nav-number">4.1.</span> <span class="nav-text">内存消耗</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#内存使用统计"><span class="nav-number">4.1.1.</span> <span class="nav-text">内存使用统计</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#内存消耗划分"><span class="nav-number">4.1.2.</span> <span class="nav-text">内存消耗划分</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存分配"><span class="nav-number">4.2.</span> <span class="nav-text">内存分配</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存优化"><span class="nav-number">4.3.</span> <span class="nav-text">内存优化</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#缩减键值对象"><span class="nav-number">4.3.1.</span> <span class="nav-text">缩减键值对象</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#字符串优化"><span class="nav-number">4.3.2.</span> <span class="nav-text">字符串优化</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#编码优化"><span class="nav-number">4.3.3.</span> <span class="nav-text">编码优化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#内存回收机制"><span class="nav-number">4.4.</span> <span class="nav-text">内存回收机制</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>

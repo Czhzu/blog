@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.0.0">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Gemini","version":"7.7.1","exturl":false,"sidebar":{"position":"left","display":"post","offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="Replication概述Redis 支持简单且易用的主从复制（master-slave replication）功能， 该功能可以让从服务器(slave server)成为主服务器(master server)的精确复制品。">
+<meta name="keywords" content="redis">
+<meta property="og:type" content="article">
+<meta property="og:title" content="redis06_Replication">
+<meta property="og:url" content="http:&#x2F;&#x2F;yoursite.com&#x2F;2019&#x2F;06&#x2F;30&#x2F;%E4%B8%AD%E9%97%B4%E4%BB%B6&#x2F;redis&#x2F;redis06_Replication&#x2F;index.html">
+<meta property="og:site_name" content="Chenaa&#39;s Notes">
+<meta property="og:description" content="Replication概述Redis 支持简单且易用的主从复制（master-slave replication）功能， 该功能可以让从服务器(slave server)成为主服务器(master server)的精确复制品。">
+<meta property="og:locale" content="zh-CN">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_15-2.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_15-7.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_15-8.png">
+<meta property="og:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_15-10.png">
+<meta property="og:updated_time" content="2020-06-03T03:46:05.000Z">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https:&#x2F;&#x2F;czh-pb-source.oss-cn-hongkong.aliyuncs.com&#x2F;pic&#x2F;redis&#x2F;redis_15-2.png">
+
+<link rel="canonical" href="http://yoursite.com/2019/06/30/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis06_Replication/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome: false,
+    isPost: true
+  };
+</script>
+
+  <title>redis06_Replication | Chenaa's Notes</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">Chenaa's Notes</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+        <p class="site-subtitle">尘事如潮人如水</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/06/30/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis06_Replication/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/uploads/avatar.gif">
+      <meta itemprop="name" content="chenaa">
+      <meta itemprop="description" content="zZ..zZ..">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Chenaa's Notes">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          redis06_Replication
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-06-30 20:12:25" itemprop="dateCreated datePublished" datetime="2019-06-30T20:12:25+08:00">2019-06-30</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2020-06-03 11:46:05" itemprop="dateModified" datetime="2020-06-03T11:46:05+08:00">2020-06-03</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/redis/" itemprop="url" rel="index"><span itemprop="name">redis</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="Replication"><a href="#Replication" class="headerlink" title="Replication"></a>Replication</h1><h1 id="概述"><a href="#概述" class="headerlink" title="概述"></a>概述</h1><p>Redis 支持简单且易用的主从复制（master-slave replication）功能， 该功能可以让从服务器(slave server)成为主服务器(master server)的精确复制品。</p>
+<a id="more"></a>
+
+<h1 id="旧版复制功能的实现-2-8版本之前"><a href="#旧版复制功能的实现-2-8版本之前" class="headerlink" title="旧版复制功能的实现(2.8版本之前)"></a>旧版复制功能的实现(2.8版本之前)</h1><p>Redis的复制功能分为同步(sync)和命令传播（command propagate）两个操作。</p>
+<h2 id="同步"><a href="#同步" class="headerlink" title="同步"></a>同步</h2><p>从服务器对主服务器的同步操作需要通过向主服务器发送SYC命令来完成:</p>
+<ol>
+<li>从服务器向主服务器发送SYNC命令。</li>
+<li>收到SYMC命令的<strong>主服务器执行BGSAVE命令</strong>,在后台生成一个RDB文件,<strong>并使用一个缓冲区记录从现在开始执行的所有写命令</strong>。</li>
+<li>BGSAVE命令执行完毕时,主服务器会将生成的RDB文件发送给从服务器,<strong>从服务器接收并载入这个RDB文件</strong></li>
+<li><strong>主服务器将记录在缓冲区里面的所有写命令发送给从服务器</strong></li>
+</ol>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_15-2.png" alt=""></p>
+<h2 id="命令传播"><a href="#命令传播" class="headerlink" title="命令传播"></a>命令传播</h2><p>主服务器接受到写命令后，会执行写命令，同时<strong>异步地</strong>将写命令发送给从服务器。(期间存在主从不一致的情况，从服务器可以正常响应未被修改的数据。)</p>
+<h2 id="旧版复制功能的缺陷"><a href="#旧版复制功能的缺陷" class="headerlink" title="旧版复制功能的缺陷"></a>旧版复制功能的缺陷</h2><p>最大缺陷就是从服务器断线重连以后，会导致重新同步，而SYNC命令又是一个非常消耗资源的命令。</p>
+<ol>
+<li>生成RDB文件操作会耗费主服务器大量的CPU、内存和磁盘IO资源。</li>
+<li>RDB文件发送给从服务器,耗费主从服务器大量的网络资源(带宽和流量),并对主服务器响应命令请求的时间产生影响。</li>
+<li>从服务器在载入RDB期间,会因为阻塞而没办法处理命令请求。</li>
+</ol>
+<h1 id="新版复制功能的实现"><a href="#新版复制功能的实现" class="headerlink" title="新版复制功能的实现"></a>新版复制功能的实现</h1><p>Redis从2.8版本开始使用PSYNC命令代替SYC命令来执行复制时的同步操作。<br>PSYNC命令具有<strong>完整重同步</strong>(full resynchronization)和<strong>部分重同步</strong>(partial resynchronization)两种模式:</p>
+<ul>
+<li>完整重同步:初次复制使用，和sync命令相同。</li>
+<li>部分重同步：用于处理断线后重复制,<strong>如果条件允许</strong>,主服务器可以将主从服务器连接<strong>断开期间执行的写命令发送给从服务器</strong>,从服务器只要接收并执行这些写命令。</li>
+</ul>
+<h2 id="无盘复制-主节点不产生RDB文件"><a href="#无盘复制-主节点不产生RDB文件" class="headerlink" title="无盘复制(主节点不产生RDB文件)"></a>无盘复制(主节点不产生RDB文件)</h2><p><strong>Redis 2.8.18 版开始支持无盘复制。</strong>所谓无盘复制是指主服务器直接通过套接字将快照内容发送到从节点，生成快照是一个遍历的过程，主节点会一边遍历内存，一遍将序列化的内容发送到从节点。</p>
+<h1 id="部分重同步的实现"><a href="#部分重同步的实现" class="headerlink" title="部分重同步的实现"></a>部分重同步的实现</h1><p>部分重同步功能由以下三个部分构成:</p>
+<ol>
+<li>主服务器的<strong>复制偏移量</strong>( replication offset)和从服务器的复制偏移量。</li>
+<li>主服务器的<strong>复制积压缓冲区</strong>( replication backlog)</li>
+<li>服务器的<strong>运行ID</strong>( run Id)</li>
+</ol>
+<h2 id="复制偏移量-replication-offset"><a href="#复制偏移量-replication-offset" class="headerlink" title="复制偏移量(replication offset)"></a>复制偏移量(replication offset)</h2><p>执行复制的双方，主、从服务器会分别维护一个复制偏移量。<br>如果主从服务器复制偏移量不同，则需要从主服务器进行复制。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_15-7.png" alt=""><br><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_15-8.png" alt=""></p>
+<h2 id="复制积压缓冲区"><a href="#复制积压缓冲区" class="headerlink" title="复制积压缓冲区"></a>复制积压缓冲区</h2><p>复制积压缓冲区是由主服务器维护的一个<strong>固定长度</strong>( fixed-size)<strong>先进先出</strong>(FIFO)队列,默认大小为1MB。</p>
+<p><img src="https://czh-pb-source.oss-cn-hongkong.aliyuncs.com/pic/redis/redis_15-10.png" alt=""></p>
+<p>主服务器的复制积压缓冲区里面会保存着一部分最近传播的写命令,并且复制积压缓冲区会为<strong>队列中的每个字节记录相应的复制偏移量</strong>。</p>
+<p>如果offset偏移量之后的数据，还在复制积压缓冲区，则会进行部分同步。如果数据已经没有了，从服务器落后太多，则进行整库同步。</p>
+<h2 id="服务器运行ID"><a href="#服务器运行ID" class="headerlink" title="服务器运行ID"></a>服务器运行ID</h2><p><strong>每个 Redis服务器,都会有自己的运行ID,运行ID在服务器启动时自动生成</strong></p>
+<p>当进行初次复制时,主服务器会将自己的运行ID传送给从服务器,而<strong>从服务器会将这个运行ID保存起来</strong>。</p>
+<p>当从服务器断线并重新连上一个主服务器时,从服务器将向当前连接的主服务器发送之前保存的运行ID,如果<strong>从服务器保存的运行ID和当前连接的主服务器的运行ID并不相同</strong>,将执行完整重同步操作。</p>
+<h1 id="心跳检测"><a href="#心跳检测" class="headerlink" title="心跳检测"></a>心跳检测</h1><p>在命令传播阶段,从服务器默认会以每秒一次的频率,向主服务器发送命令:</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">REPLCONF ACK &lt;replication offset&gt;</span><br></pre></td></tr></table></figure>
+
+<p>replication offset是从服务器当前的复制偏移量。<br>发送 REPLCONF ACK命令对于主从服务器有三个作用</p>
+<ol>
+<li>检测主从服务器的网络连接状态。</li>
+<li>辅助实现min-slaves选项。</li>
+<li>检测命令丢失。</li>
+</ol>
+<h2 id="检测主从服务器的网络连接状态"><a href="#检测主从服务器的网络连接状态" class="headerlink" title="检测主从服务器的网络连接状态"></a>检测主从服务器的网络连接状态</h2><h2 id="辅助实现min-slaves选项"><a href="#辅助实现min-slaves选项" class="headerlink" title="辅助实现min-slaves选项"></a>辅助实现min-slaves选项</h2><p><strong>主服务器只在有至少 N 个从服务器的情况下，才执行写操作</strong></p>
+<p>从 Redis 2.8 开始，为了保证数据的安全性，可以通过配置，让主服务器只在有至少 N 个当前已连接从服务器的情况下，才执行写命令。</p>
+<p>不过，因为<strong>Redis 使用异步复制</strong>，所以主服务器发送的写数据并不一定会被从服务器接收到， 因此<strong>数据丢失的可能性仍然是存在的</strong>。</p>
+<p>以下是这个特性的运作原理：</p>
+<ol>
+<li>从服务器以每秒一次的频率 PING 主服务器一次， 并报告复制流的处理情况。</li>
+<li>主服务器会记录各个从服务器最后一次向它发送 PING 的时间。</li>
+<li>用户可以通过配置， 指定网络延迟的最大值 min-slaves-max-lag ， 以及执行写操作所需的至少从服务器数量 min-slaves-to-write。</li>
+</ol>
+<p>如果至少有 min-slaves-to-write 个从服务器， 并且这些服务器的延迟值都少于 min-slaves-max-lag 秒， 那么主服务器就会执行客户端请求的写操作。</p>
+<p>你可以将<strong>这个特性看作 CAP 理论中的 C 的条件放宽版本</strong>： 尽管不能保证写操作的持久性， 但起码丢失数据的窗口会被严格限制在指定的秒数中。</p>
+<p>另一方面， <strong>如果条件达不到</strong> min-slaves-to-write 和 min-slaves-max-lag 所指定的条件， 那么写操作就不会被执行， <strong>主服务器会向请求执行写操作的客户端返回一个错误。</strong></p>
+<h2 id="检测命令丢失"><a href="#检测命令丢失" class="headerlink" title="检测命令丢失"></a>检测命令丢失</h2><p><strong>检测offet，如果不相同，则进行部分同步。</strong></p>
+<p>如果因为网络故障,主服务器传播给从服务器的写命令在半路丢失,那么当从服务器向主服务器发送 REPLCONF ACK命令时,主服务器将发觉从服务器当前的复制偏移量少于自己的复制偏移量,然后主服务器就会根据从服务器提交的复制偏移量,在复制积压缓冲区里面找到从服务器缺少的数据,并将这些数据重新发送给从服务器。</p>
+<h1 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h1><p><a href="http://redisdoc.com/topic/replication.html" target="_blank" rel="noopener">redis官网文档1</a><br><a href="https://redis.io/topics/replication" target="_blank" rel="noopener">redis官网文档2</a></p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/redis/" rel="tag"># redis</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/06/25/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis05_%E4%BA%8B%E4%BB%B6%E5%A4%84%E7%90%86%E5%99%A8/" rel="prev" title="redis05_事件处理器">
+      <i class="fa fa-chevron-left"></i> redis05_事件处理器
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/07/03/%E4%B8%AD%E9%97%B4%E4%BB%B6/redis/redis07_Sentinel/" rel="next" title="redis07_Sentinel">
+      redis07_Sentinel <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let activeClass = CONFIG.comments.activeClass;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#Replication"><span class="nav-number">1.</span> <span class="nav-text">Replication</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#概述"><span class="nav-number">2.</span> <span class="nav-text">概述</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#旧版复制功能的实现-2-8版本之前"><span class="nav-number">3.</span> <span class="nav-text">旧版复制功能的实现(2.8版本之前)</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#同步"><span class="nav-number">3.1.</span> <span class="nav-text">同步</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#命令传播"><span class="nav-number">3.2.</span> <span class="nav-text">命令传播</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#旧版复制功能的缺陷"><span class="nav-number">3.3.</span> <span class="nav-text">旧版复制功能的缺陷</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#新版复制功能的实现"><span class="nav-number">4.</span> <span class="nav-text">新版复制功能的实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#无盘复制-主节点不产生RDB文件"><span class="nav-number">4.1.</span> <span class="nav-text">无盘复制(主节点不产生RDB文件)</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#部分重同步的实现"><span class="nav-number">5.</span> <span class="nav-text">部分重同步的实现</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#复制偏移量-replication-offset"><span class="nav-number">5.1.</span> <span class="nav-text">复制偏移量(replication offset)</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#复制积压缓冲区"><span class="nav-number">5.2.</span> <span class="nav-text">复制积压缓冲区</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#服务器运行ID"><span class="nav-number">5.3.</span> <span class="nav-text">服务器运行ID</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#心跳检测"><span class="nav-number">6.</span> <span class="nav-text">心跳检测</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#检测主从服务器的网络连接状态"><span class="nav-number">6.1.</span> <span class="nav-text">检测主从服务器的网络连接状态</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#辅助实现min-slaves选项"><span class="nav-number">6.2.</span> <span class="nav-text">辅助实现min-slaves选项</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#检测命令丢失"><span class="nav-number">6.3.</span> <span class="nav-text">检测命令丢失</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#参考"><span class="nav-number">7.</span> <span class="nav-text">参考</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="chenaa"
+      src="/uploads/avatar.gif">
+  <p class="site-author-name" itemprop="name">chenaa</p>
+  <div class="site-description" itemprop="description">zZ..zZ..</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">44</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">10</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">chenaa</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.0.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Gemini</a> v7.7.1
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script>
+<script src="/js/schemes/pisces.js"></script>
+<script src="/js/next-boot.js"></script>
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
